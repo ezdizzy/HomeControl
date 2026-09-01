@@ -1,0 +1,472 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Project-Id-Version: \n"
+"Last-Translator: Automatically generated\n"
+"Language-Team: none\n"
+"Language: ru\n"
+"MIME-Version: 1.0\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "HomeControl — Dashboard"
+msgstr "HomeControl — Панель"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "Overview of managed clients and their current access state."
+msgstr "Обзор управляемых клиентов и их текущего состояния доступа."
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "Managed clients"
+msgstr "Управляемые клиенты"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "Blocked now"
+msgstr "Заблокировано сейчас"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "Allowed"
+msgstr "Разрешено"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "Active schedules"
+msgstr "Активных расписаний"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "Pause all enforcement"
+msgstr "Приостановить все ограничения"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "PAUSED — everything allowed"
+msgstr "ПАУЗА — всё разрешено"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "Active"
+msgstr "Активно"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "Disabled (enable in Settings)"
+msgstr "Отключено (включите в Настройках)"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "Status unavailable — is the service running?"
+msgstr "Статус недоступен — запущена ли служба?"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "No clients yet — add them in the Clients tab."
+msgstr "Клиентов пока нет — добавьте их во вкладке Клиенты."
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "Online"
+msgstr "В сети"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "Offline"
+msgstr "Не в сети"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "Blocked"
+msgstr "Заблокирован"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "Temp block"
+msgstr "Врем. блок"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "Schedule"
+msgstr "Расписание"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "no address known"
+msgstr "адрес неизвестен"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "Block"
+msgstr "Блокировать"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "Allow"
+msgstr "Разрешить"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "Block 1h"
+msgstr "Блок 1ч"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "Block for one hour"
+msgstr "Заблокировать на один час"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "HomeControl — Clients"
+msgstr "HomeControl — Клиенты"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "Manage which devices are allowed on the network. Block instantly, or for a limited time."
+msgstr "Управляйте тем, какие устройства имеют доступ к сети. Мгновенная или временная блокировка."
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "Add client"
+msgstr "Добавить клиента"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "Name (e.g. Kids Tablet)"
+msgstr "Имя (напр. Планшет детей)"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "IP address (e.g. 192.168.1.100)"
+msgstr "IP-адрес (напр. 192.168.1.100)"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "MAC (optional, e.g. AA:BB:CC:DD:EE:FF)"
+msgstr "MAC (опционально, напр. AA:BB:CC:DD:EE:FF)"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "Fill at least one field"
+msgstr "Заполните хотя бы одно поле"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "Error"
+msgstr "Ошибка"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "Client added"
+msgstr "Клиент добавлен"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "Client list"
+msgstr "Список клиентов"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "No clients configured."
+msgstr "Клиенты не настроены."
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "Client"
+msgstr "Клиент"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "IP"
+msgstr "IP"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "MAC"
+msgstr "MAC"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "State"
+msgstr "Состояние"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "Actions"
+msgstr "Действия"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "offline"
+msgstr "не в сети"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "Block for 30 minutes"
+msgstr "Заблокировать на 30 минут"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "Block for 2 hours"
+msgstr "Заблокировать на 2 часа"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "Delete client"
+msgstr "Удалить клиента"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "Really delete %s?"
+msgstr "Действительно удалить %s?"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "Cancel"
+msgstr "Отмена"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "Delete"
+msgstr "Удалить"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "Tip: leave IP/MAC empty and the client can be matched later. IP is enough for instant blocking."
+msgstr "Совет: можно оставить IP/MAC пустыми и указать позже. Для мгновенной блокировки достаточно IP."
+
+#: htdocs/luci-static/resources/view/homecontrol/wifi.js
+msgid "HomeControl — Wi-Fi"
+msgstr "HomeControl — Wi-Fi"
+
+#: htdocs/luci-static/resources/view/homecontrol/wifi.js
+msgid "Turn wireless interfaces on or off. Schedules can also disable them automatically at night or during study hours."
+msgstr "Включайте и выключайте беспроводные интерфейсы. Расписания могут отключать их автоматически ночью или во время уроков."
+
+#: htdocs/luci-static/resources/view/homecontrol/wifi.js
+msgid "No Wi-Fi radios detected."
+msgstr "Wi-Fi радио не обнаружены."
+
+#: htdocs/luci-static/resources/view/homecontrol/wifi.js
+msgid "enabled"
+msgstr "включено"
+
+#: htdocs/luci-static/resources/view/homecontrol/wifi.js
+msgid "disabled"
+msgstr "отключено"
+
+#: htdocs/luci-static/resources/view/homecontrol/wifi.js
+msgid "Turn off radio"
+msgstr "Выключить радио"
+
+#: htdocs/luci-static/resources/view/homecontrol/wifi.js
+msgid "Turn on radio"
+msgstr "Включить радио"
+
+#: htdocs/luci-static/resources/view/homecontrol/wifi.js
+msgid "Turn off"
+msgstr "Выключить"
+
+#: htdocs/luci-static/resources/view/homecontrol/wifi.js
+msgid "Turn on"
+msgstr "Включить"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "HomeControl — Site Rules"
+msgstr "HomeControl — Правила сайтов"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Block access to sites and resources. Rules are applied network-wide via DNS (domains) or the firewall (IPs). Group them into schedules later."
+msgstr "Блокируйте доступ к сайтам и ресурсам. Правила действуют на всю сеть через DNS (домены) или межсетевой экран (IP)."
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Existing rules"
+msgstr "Существующие правила"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "No rules yet. Add domains or IPs to block below."
+msgstr "Правил пока нет. Добавьте домены или IP для блокировки ниже."
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Name"
+msgstr "Имя"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Type"
+msgstr "Тип"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Targets"
+msgstr "Цели"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Enabled"
+msgstr "Включено"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Domain"
+msgstr "Домен"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "IP / subnet (via firewall)"
+msgstr "IP / подсеть (через firewall)"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Domain (site blocking via DNS)"
+msgstr "Домен (блокировка сайтов через DNS)"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Rule name (e.g. Social media)"
+msgstr "Название правила (напр. Соцсети)"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "One domain or IP per line, e.g."
+msgstr "По одному домену или IP на строку, напр."
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Enter at least one domain or IP"
+msgstr "Введите хотя бы один домен или IP"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Enter a rule name"
+msgstr "Введите название правила"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Add rule"
+msgstr "Добавить правило"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Rule added and applied"
+msgstr "Правило добавлено и применено"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "HomeControl — Schedules"
+msgstr "HomeControl — Расписания"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Plan when clients, Wi-Fi or rule sets are blocked or allowed. Windows may cross midnight (e.g. 21:00 → 07:00)."
+msgstr "Планируйте, когда клиенты, Wi-Fi или наборы правил блокируются или разрешаются. Окна могут переходить через полночь (напр. 21:00 → 07:00)."
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Existing schedules"
+msgstr "Существующие расписания"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "No schedules yet. Example: block kids' tablets on school nights after 21:00, turn guest Wi-Fi off at night, pause the internet for an hour as a timeout."
+msgstr "Расписаний пока нет. Пример: блокировать детские планшеты после 21:00 в учебные дни, выключать гостевой Wi-Fi ночью, отключать интернет на час как тайм-аут."
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Every day"
+msgstr "Каждый день"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "(nothing bound)"
+msgstr "(ничего не привязано)"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "%d client"
+msgid_plural "%d clients"
+msgstr[0] "%d клиент"
+msgstr[1] "%d клиента"
+msgstr[2] "%d клиентов"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Kind"
+msgstr "Вид"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Window"
+msgstr "Окно"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Bound to"
+msgstr "Привязано к"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Action"
+msgstr "Действие"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Daily (same time each day)"
+msgstr "Ежедневно (одно время каждый день)"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Weekly (specific weekdays)"
+msgstr "По дням недели"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Date range (whole day, e.g. vacation)"
+msgstr "Диапазон дат (целые дни, напр. каникулы)"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "One-shot timer (exact date+time)"
+msgstr "Разовый таймер (точные дата и время)"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Block during window"
+msgstr "Блокировать в окне"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Allow only during window"
+msgstr "Разрешать только в окне"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Bind clients"
+msgstr "Привязать клиентов"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Bind Wi-Fi"
+msgstr "Привязать Wi-Fi"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Create schedule"
+msgstr "Создать расписание"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Enter a schedule name"
+msgstr "Введите название расписания"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Bind at least one client or Wi-Fi interface"
+msgstr "Привяжите хотя бы одного клиента или Wi-Fi интерфейс"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Schedule created and applied"
+msgstr "Расписание создано и применено"
+
+#: htdocs/luci-static/resources/view/homecontrol/journal.js
+msgid "HomeControl — Journal"
+msgstr "HomeControl — Журнал"
+
+#: htdocs/luci-static/resources/view/homecontrol/journal.js
+msgid "What happened and when: blocks, unblocks, Wi-Fi toggles, schedule activity."
+msgstr "Что и когда происходило: блокировки, разблокировки, переключения Wi-Fi, активность расписаний."
+
+#: htdocs/luci-static/resources/view/homecontrol/journal.js
+msgid "Events"
+msgstr "События"
+
+#: htdocs/luci-static/resources/view/homecontrol/journal.js
+msgid "No events yet."
+msgstr "Событий пока нет."
+
+#: htdocs/luci-static/resources/view/homecontrol/journal.js
+msgid "Time"
+msgstr "Время"
+
+#: htdocs/luci-static/resources/view/homecontrol/journal.js
+msgid "Event"
+msgstr "Событие"
+
+#: htdocs/luci-static/resources/view/homecontrol/journal.js
+msgid "Who"
+msgstr "Кто"
+
+#: htdocs/luci-static/resources/view/homecontrol/journal.js
+msgid "Details"
+msgstr "Детали"
+
+#: htdocs/luci-static/resources/view/homecontrol/journal.js
+msgid "Service log (tail)"
+msgstr "Журнал службы (хвост)"
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "HomeControl — Settings"
+msgstr "HomeControl — Настройки"
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "Global behaviour of HomeControl."
+msgstr "Глобальное поведение HomeControl."
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "Enable HomeControl enforcement"
+msgstr "Включить применение ограничений"
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "Record events to the journal"
+msgstr "Записывать события в журнал"
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "Journal size (events)"
+msgstr "Размер журнала (событий)"
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "Save and apply"
+msgstr "Сохранить и применить"
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "How enforcement works"
+msgstr "Как работают ограничения"
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "Blocked clients: their IPv4 addresses and MACs are dropped in the firewall (forward + output chains)."
+msgstr "Заблокированные клиенты: их IPv4-адреса и MAC отбрасываются в firewall (цепочки forward + output)."
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "Blocked domains: answered with NXDOMAIN by dnsmasq, so they fail fast without timeouts."
+msgstr "Заблокированные домены: dnsmasq отвечает NXDOMAIN — быстро, без таймаутов."
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "Schedules: checked every minute by the service; windows may cross midnight."
+msgstr "Расписания: проверяются службой каждую минуту; окна могут переходить через полночь."
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "Pause switch (Dashboard): disables all temporary and scheduled blocks at once — useful for parents."
+msgstr "Пауза (Панель): мгновенно отключает все временные и плановые блокировки — удобно для родителей."

@@ -1,0 +1,8 @@
+# Defaults for /etc/config/homecontrol (restored when config is missing).
+
+config main 'main'
+	option enabled '0'
+	option default_policy 'allow'
+	option log_enabled '1'
+	option log_max '500'
+	option paused '0'

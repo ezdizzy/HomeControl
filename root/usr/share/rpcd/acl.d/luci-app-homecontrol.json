@@ -1,0 +1,19 @@
+{
+	"luci-app-homecontrol": {
+		"description": "Grant access to HomeControl configuration",
+		"read": {
+			"file": {
+				"/usr/bin/ucode": [ "exec" ],
+				"/var/run/homecontrol/homecontrol.log": [ "read" ]
+			},
+			"ubus": {
+				"service": [ "list" ],
+				"luci.homecontrol": [ "*" ]
+			},
+			"uci": [ "homecontrol" ]
+		},
+		"write": {
+			"uci": [ "homecontrol" ]
+		}
+	}
+}

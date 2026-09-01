@@ -1,0 +1,170 @@
+name: Build HomeControl
+
+# Builds ipk + apk on every push/PR (artifacts only). A GitHub Release is
+# created ONLY for: workflow_dispatch with a version, or a pushed v* tag.
+
+on:
+  push:
+    branches:
+      - 'main'
+      - 'master'
+    tags:
+      - 'v*.*.*'
+    paths:
+      - 'htdocs/**'
+      - 'po/**'
+      - 'root/**'
+      - 'Makefile'
+      - '.github/**'
+      - '!.github/ISSUE_TEMPLATE/**'
+
+  pull_request:
+    branches:
+      - 'main'
+      - 'master'
+    paths:
+      - 'htdocs/**'
+      - 'po/**'
+      - 'root/**'
+      - 'Makefile'
+      - '.github/**'
+
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (semantic X.Y.Z), e.g. 0.1.0. Leave empty to just build artifacts.'
+        required: false
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout source tree
+        uses: actions/checkout@v6
+
+      - name: Checkout apk-tools (apk mkpkg for OpenWrt 25.x packages)
+        uses: actions/checkout@v6
+        with:
+          repository: 'alpinelinux/apk-tools'
+          path: 'apk-tools'
+          fetch-depth: 0
+          ref: 'b5a31c0d865342ad80be10d68f1bb3d3ad9b0866'
+
+      - name: Checkout po2lmo
+        uses: actions/checkout@v6
+        with:
+          repository: 'openwrt/luci'
+          path: 'po2lmo'
+          sparse-checkout: 'modules/luci-base/src'
+
+      - name: Setup dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo -E rm -rf /var/lib/man-db/auto-update
+          sudo -E apt-get update -qq
+          sudo -E apt-get install -y build-essential curl fakeroot libssl-dev lua5.1 meson ninja-build
+
+          pushd apk-tools
+          meson setup build \
+            -Db_lto=true \
+            -Dcompressed-help=false \
+            -Ddocs=disabled \
+            -Dhelp=enabled \
+            -Dlua_version=5.1 \
+            -Ddefault_library=static \
+            -Durl_backend=wget \
+            -Dzstd=false \
+            -Dpython=disabled \
+            -Dtests=disabled \
+            -Dcrypto_backend=openssl
+          ninja -C build
+          sudo -E meson install -C build --strip
+          popd
+
+          pushd po2lmo/modules/luci-base/src
+          make po2lmo
+          sudo -E install -m0755 -s po2lmo /usr/local/bin/po2lmo
+          popd
+
+          curl -fLO "https://raw.githubusercontent.com/openwrt/openwrt/master/scripts/ipkg-build"
+          sudo install -m0755 ipkg-build /usr/local/bin/ipkg-build
+
+      - name: Determine release tag / publish flag
+        id: tag
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            RELEASE_TAG="v${{ github.event.inputs.version }}"
+            PUBLISH_RELEASE=true
+            RELEASE_TYPE=release
+          elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            RELEASE_TAG="${GITHUB_REF_NAME}"
+            PUBLISH_RELEASE=true
+            RELEASE_TYPE=release
+          else
+            RELEASE_TAG="build-$(date -u +%Y%m%d)-${GITHUB_SHA::7}"
+            PUBLISH_RELEASE=false
+            RELEASE_TYPE=snapshot
+          fi
+          echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
+          echo "publish_release=${PUBLISH_RELEASE}" >> $GITHUB_OUTPUT
+          echo "release_type=${RELEASE_TYPE}" >> $GITHUB_OUTPUT
+          echo "release_version=${RELEASE_TAG#v}" >> $GITHUB_OUTPUT
+
+      - name: Build apk (OpenWrt 25.x)
+        run: |
+          pushd .github
+          fakeroot bash build.sh apk "${{ steps.tag.outputs.release_type }}" "${{ steps.tag.outputs.release_version }}"
+          echo "APK_ASSET_NAME=$(ls luci-app-homecontrol_*_all.apk)" >> $GITHUB_ENV
+          echo "I18N_APK_ASSET_NAME=$(ls luci-i18n-homecontrol-ru_*_all.apk)" >> $GITHUB_ENV
+          popd
+
+      - name: Build ipk (OpenWrt 23.05 / 24.10)
+        run: |
+          pushd .github
+          fakeroot bash build.sh ipk "${{ steps.tag.outputs.release_type }}" "${{ steps.tag.outputs.release_version }}"
+          echo "IPK_ASSET_NAME=$(ls luci-app-homecontrol_*_all.ipk)" >> $GITHUB_ENV
+          popd
+
+      - name: Upload apk artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APK_ASSET_NAME }}
+          path: .github/${{ env.APK_ASSET_NAME }}
+
+      - name: Upload ipk artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.IPK_ASSET_NAME }}
+          path: .github/${{ env.IPK_ASSET_NAME }}
+
+      - name: Upload i18n apk artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.I18N_APK_ASSET_NAME }}
+          path: .github/${{ env.I18N_APK_ASSET_NAME }}
+
+      - name: Publish release
+        if: steps.tag.outputs.publish_release == 'true'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ github.token }}
+          file: .github/*.{apk,ipk}
+          file_glob: true
+          tag: ${{ steps.tag.outputs.release_tag }}
+          release_name: HomeControl ${{ steps.tag.outputs.release_tag }}
+          prerelease: false
+          draft: false
+          body: |
+            HomeControl ${{ steps.tag.outputs.release_tag }}
+
+            - **apk** (`.apk`) — OpenWrt 25.x+
+            - **ipk** (`.ipk`) — OpenWrt 23.05 / 24.10
+            - **luci-i18n-homecontrol-ru** — русский перевод
+
+            Install with `apk add --allow-untrusted ./luci-app-homecontrol_*.apk`
+            or `opkg install ./luci-app-homecontrol_*.ipk`.

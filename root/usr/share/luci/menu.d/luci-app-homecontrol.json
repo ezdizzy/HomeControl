@@ -1,0 +1,69 @@
+{
+	"admin/services/homecontrol": {
+		"title": "HomeControl",
+		"order": 12,
+		"action": {
+			"type": "firstchild"
+		},
+		"depends": {
+			"acl": [ "luci-app-homecontrol" ],
+			"uci": { "homecontrol": true }
+		}
+	},
+	"admin/services/homecontrol/dashboard": {
+		"title": "Dashboard",
+		"order": 10,
+		"action": {
+			"type": "view",
+			"path": "homecontrol/dashboard"
+		}
+	},
+	"admin/services/homecontrol/clients": {
+		"title": "Clients",
+		"order": 20,
+		"action": {
+			"type": "view",
+			"path": "homecontrol/clients"
+		}
+	},
+	"admin/services/homecontrol/wifi": {
+		"title": "Wi-Fi",
+		"order": 30,
+		"action": {
+			"type": "view",
+			"path": "homecontrol/wifi"
+		}
+	},
+	"admin/services/homecontrol/rules": {
+		"title": "Site Rules",
+		"order": 40,
+		"action": {
+			"type": "view",
+			"path": "homecontrol/rules"
+		}
+	},
+	"admin/services/homecontrol/schedules": {
+		"title": "Schedules",
+		"order": 50,
+		"action": {
+			"type": "view",
+			"path": "homecontrol/schedules"
+		}
+	},
+	"admin/services/homecontrol/journal": {
+		"title": "Journal",
+		"order": 60,
+		"action": {
+			"type": "view",
+			"path": "homecontrol/journal"
+		}
+	},
+	"admin/services/homecontrol/settings": {
+		"title": "Settings",
+		"order": 70,
+		"action": {
+			"type": "view",
+			"path": "homecontrol/settings"
+		}
+	}
+}

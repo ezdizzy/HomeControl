@@ -1,0 +1,35 @@
+# HomeControl - advanced parental control for OpenWrt
+# See /usr/share/homecontrol/README for schema notes.
+
+config main 'main'
+	option enabled '0'
+	# default_policy: allow | deny (what a client with NO rules gets)
+	option default_policy 'allow'
+	option log_enabled '1'
+	option log_max '500'
+	# pause: global kill-switch for scheduled/temporary enforcement ("pause all")
+	option paused '0'
+
+# config section per managed client: homecontrol.<id>=client
+#	options: name, mac, ip, ip6, device (hostname), policy (allow|deny|schedule),
+#		 note, blocked (0/1 quick toggle), schedule_id (list of schedule refs)
+
+# config section per wifi iface override: homecontrol.<id>=wifi
+#	options: name, device (radio), network (iface), disabled (0/1 managed off),
+#		 hidden, policy: schedule_id
+
+# config section per block rule: homecontrol.<id>=rule
+#	options: name, type (domain|ip|mac), target (list: domain/ip/cidr),
+#		 action (block|allow), enabled
+
+# config section per named ruleset: homecontrol.<id>=ruleset
+#	options: name, note, rules (list of rule ids)
+
+# config section per schedule: homecontrol.<id>=schedule
+#	options: name, type (daily|weekly|range|timer), enabled, action (allow|deny)
+#	time_start, time_stop (HH:MM), days (list: Mon..Sun),
+#	date_start, date_stop (YYYY-MM-DD), weekdays
+#	client_ids (list), wifi_ids (list), ruleset_ids (list)
+
+config dummy 'dummy'
+	option placeholder '1'

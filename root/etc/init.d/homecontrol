@@ -1,0 +1,88 @@
+#!/bin/sh /etc/rc.common
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# HomeControl - enforcement service.
+#
+# procd instance "engine" runs the schedule watcher which re-applies the
+# enforcement state every minute (schedule boundaries, temporary blocks).
+# The nftables rules are rendered by scripts/apply.uc and installed as a
+# fw4-independent table (inet homecontrol), so they survive fw4 reloads
+# via the firewall include registered by uci-defaults.
+
+USE_PROCD=1
+
+START=95
+STOP=10
+
+CONF="homecontrol"
+HC_DIR="/etc/homecontrol"
+RUN_DIR="/var/run/homecontrol"
+
+log() {
+	echo -e "$(date '+%Y-%m-%d %H:%M:%S') [HC] $*" >> "$RUN_DIR/homecontrol.log"
+}
+
+ensure_config() {
+	# Self-heal missing/empty config (conffile deleted or wiped overlay).
+	if ! grep -q "config main" "/etc/config/$CONF" 2>/dev/null; then
+		if [ -f "/usr/share/homecontrol/homecontrol.default" ]; then
+			cp "/usr/share/homecontrol/homecontrol.default" "/etc/config/$CONF"
+			log "config /etc/config/$CONF was missing/empty - restored defaults."
+		fi
+	fi
+	# Ensure main section exists even if defaults were merged oddly.
+	if ! uci -q get "$CONF.main" >/dev/null; then
+		uci -q set "$CONF.main=main"
+		uci -q set "$CONF.main.enabled='0'"
+		uci -q set "$CONF.main.default_policy='allow'"
+		uci -q set "$CONF.main.log_enabled='1'"
+		uci -q set "$CONF.main.log_max='500'"
+		uci -q set "$CONF.main.paused='0'"
+		uci -q commit "$CONF"
+		log "created missing $CONF.main section."
+	fi
+}
+
+apply_now() {
+	mkdir -p "$RUN_DIR"
+	/usr/bin/ucode -L "$HC_DIR/scripts" "$HC_DIR/scripts/apply.uc" >/dev/null 2>&1
+}
+
+start_service() {
+	ensure_config
+	mkdir -p "$RUN_DIR"
+
+	procd_open_instance "engine"
+	procd_set_param command /usr/bin/ucode -L "$HC_DIR/scripts" "$HC_DIR/scripts/engine.uc"
+	procd_set_param respawn 3600 5 0
+	procd_set_param stdout 0
+	procd_set_param stderr 0
+	procd_close_instance
+
+	apply_now
+	log "service started."
+}
+
+stop_service() {
+	# Remove our nft table so no stale blocks remain after service removal.
+	nft delete table inet homecontrol 2>/dev/null
+	# Restore any WiFi ifaces we disabled.
+	for f in "$RUN_DIR"/wifi.off.*; do
+		[ -e "$f" ] || break
+		iface="${f##*wifi.off.}"
+		uci -q delete "wireless.$iface.disabled"
+		rm -f "$f"
+	done
+	uci -q commit wireless 2>/dev/null
+	[ -e "$RUN_DIR/wifi.off."* ] && wifi reload 2>/dev/null
+	log "service stopped, enforcement removed."
+}
+
+reload_service() {
+	apply_now
+	log "reloaded."
+}
+
+service_triggers() {
+	procd_add_reload_trigger "$CONF"
+}

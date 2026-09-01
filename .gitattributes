@@ -1,0 +1,8 @@
+* text=auto eol=lf
+*.sh text eol=lf
+*.uc text eol=lf
+*.ut text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.po text eol=lf
+*.pot text eol=lf

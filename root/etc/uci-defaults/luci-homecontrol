@@ -1,0 +1,16 @@
+#!/bin/sh
+# uci-defaults: register fw4 includes for HomeControl nft chains.
+
+[ -f "/etc/config/firewall" ] || exit 0
+
+uci -q batch <<-EOF >"/dev/null"
+	delete firewall.homecontrol_pre
+	set firewall.homecontrol_pre=include
+	set firewall.homecontrol_pre.type=nftables
+	set firewall.homecontrol_pre.path="/var/run/homecontrol/fw4_pre.nft"
+	set firewall.homecontrol_pre.position="chain-pre"
+	set firewall.homecontrol_pre.chain="forward"
+	commit firewall
+EOF
+
+exit 0

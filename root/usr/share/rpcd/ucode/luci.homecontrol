@@ -1,0 +1,360 @@
+#!/usr/bin/ucode
+/*
+ * SPDX-License-Identifier: GPL-2.0-only
+ *
+ * HomeControl rpcd backend: ubus object "luci.homecontrol" for the LuCI app.
+ * Deployed to /usr/share/rpcd/ucode/luci.homecontrol. Executed by rpcd's
+ * ucode interpreter, which runs the file as a program and takes the returned
+ * object: the file must END with `return { 'luci.homecontrol': methods }`,
+ * and rpcd wraps the whole file into a function body (so bare top-level
+ * `return` is valid for rpcd but NOT for `ucode -c` or direct import —
+ * to syntax-check this file, run it through rpcd or use uci-defaults-time
+ * wrap trick below).
+ */
+
+'use strict';
+
+import { access, readfile, popen, open } from 'fs';
+import { RUN_DIR, EVENTS_PATH, LOG_PATH, CONF, get_sections, sec_opt, main_opt, add_event, read_temps, write_temps, atomic_write, schedule_active, get_schedules, parse_hhmm } from '/etc/homecontrol/scripts/homecontrol.uc';
+
+function shellquote(s) {
+	return `'${replace(s, "'", "'\\''")}'`;
+}
+
+function restart_apply() {
+	/* Run the enforcer detached so rpcd never blocks on it. */
+	system(`( ucode -L /etc/homecontrol/scripts /etc/homecontrol/scripts/apply.uc >/dev/null 2>&1 ) &`);
+}
+
+function now_epoch() {
+	return time();
+}
+
+/* ── status ────────────────────────────────────────────────────────── */
+
+function status_overview() {
+	const clients = get_sections('client');
+	const temps = read_temps();
+	const now = now_epoch();
+	let blocked = 0, allowed = 0, temp = 0;
+	const list = [];
+
+	for (let i = 0; i < length(clients); i++) {
+		const c = clients[i];
+		let state = 'allow', reason = '';
+		if (c.blocked === '1') {
+			state = 'block';
+			reason = 'manual';
+		} else if ((c.ip && temps[c.ip]) || (c.mac && temps[c.mac])) {
+			state = 'block';
+			reason = 'temp';
+			temp++;
+		} else {
+			const schs = get_schedules();
+			for (let j = 0; j < length(schs); j++) {
+				const s = schs[j];
+				const cids = s.client_ids || [];
+				let mine = false;
+				for (let k = 0; k < length(cids); k++)
+					if (cids[k] === c.id || cids[k] === c.name)
+						mine = true;
+				if (mine && schedule_active(s, now) && (s.action || 'deny') === 'deny') {
+					state = 'block';
+					reason = 'schedule';
+					break;
+				}
+			}
+		}
+		if (state === 'block') {
+			blocked++;
+			if (reason === 'temp')
+				; /* counted */
+			else if (reason === 'manual')
+				; /* counted */
+		} else {
+			allowed++;
+		}
+		push(list, {
+			id: c.id,
+			name: c.name || c.ip || c.mac || '?',
+			ip: c.ip || '',
+			mac: c.mac || '',
+			state: state,
+			reason: reason
+		});
+	}
+
+	/* online detection: /proc/net/arp for MAC presence */
+	const arp = {};
+	const fd = open('/proc/net/arp', 'r');
+	if (fd) {
+		fd.read('all');
+		/* parse line-based */
+		const raw = readfile('/proc/net/arp') || '';
+		const lines = split(trim(raw), '\n');
+		for (let i = 1; i < length(lines); i++) {
+			const f = split(trim(lines[i]), /\s+/);
+			if (length(f) >= 6 && f[3] != '00:00:00:00:00:00')
+				arp[f[0]] = f[3];
+		}
+		fd.close();
+	}
+	for (let i = 0; i < length(list); i++) {
+		list[i].online = (list[i].ip && (list[i].ip in arp)) ? true : false;
+	}
+
+	return {
+		enabled: main_opt('enabled', '0') === '1',
+		paused: main_opt('paused', '0') === '1',
+		clients_total: length(clients),
+		blocked: blocked,
+		allowed: allowed,
+		temp: temp,
+		schedules: length(get_schedules()),
+		clients: list
+	};
+}
+
+/* ── methods table ─────────────────────────────────────────────────── */
+
+const methods = {
+
+	status: {
+		call: function(req) {
+			return status_overview();
+		}
+	},
+
+	/* Apply changes: rerun the enforcement engine. */
+	apply: {
+		call: function(req) {
+			restart_apply();
+			return { result: true };
+		}
+	},
+
+	/* Pause / resume all enforcement (parents' override switch). */
+	set_paused: {
+		args: { paused: 'paused' },
+		call: function(req) {
+			const p = (req.args?.paused === true || req.args?.paused === '1') ? '1' : '0';
+			system(`uci -q set ${CONF}.main.paused='${p}'`);
+			system(`uci -q commit ${CONF}`);
+			add_event('system', '', (p === '1') ? 'enforcement paused' : 'enforcement resumed');
+			restart_apply();
+			return { result: true, paused: p === '1' };
+		}
+	},
+
+	/* Quick block / unblock a client by section id. */
+	client_set_blocked: {
+		args: { id: 'id', blocked: 'blocked' },
+		call: function(req) {
+			const id = req.args?.id;
+			if (!id)
+				return { result: false, error: 'missing id' };
+			const b = (req.args?.blocked === true || req.args?.blocked === '1') ? '1' : '0';
+			system(`uci -q set ${CONF}.${shellquote(id)}.blocked='${b}'`);
+			system(`uci -q commit ${CONF}`);
+			const name = system(`uci -q get ${CONF}.${id}.name`) ? '' : '';
+			add_event((b === '1') ? 'block' : 'allow', id, (b === '1') ? 'blocked manually' : 'unblocked');
+			restart_apply();
+			return { result: true };
+		}
+	},
+
+	/* Temporary block: minutes (default 60). key = section id. */
+	client_temp_block: {
+		args: { id: 'id', minutes: 'minutes' },
+		call: function(req) {
+			const id = req.args?.id;
+			if (!id)
+				return { result: false, error: 'missing id' };
+			const mins = int(req.args?.minutes) || 60;
+			const fd1 = popen(`uci -q get ${CONF}.${id}.ip 2>/dev/null`);
+			const ip_v = fd1 ? trim(fd1.read('all') || '') : '';
+			if (fd1) fd1.close();
+			const fd2 = popen(`uci -q get ${CONF}.${id}.mac 2>/dev/null`);
+			const mac_v = fd2 ? trim(fd2.read('all') || '') : '';
+			if (fd2) fd2.close();
+			const temps = read_temps();
+			const until = now_epoch() + mins * 60;
+			if (length(ip_v))
+				temps[ip_v] = until;
+			if (length(mac_v))
+				temps[mac_v] = until;
+			write_temps(temps);
+			add_event('temp', id, `temporary block for ${mins} min`);
+			restart_apply();
+			return { result: true, until: until };
+		}
+	},
+
+	client_temp_unblock: {
+		args: { id: 'id' },
+		call: function(req) {
+			const id = req.args?.id;
+			if (!id)
+				return { result: false, error: 'missing id' };
+			const fd1 = popen(`uci -q get ${CONF}.${id}.ip 2>/dev/null`);
+			const ip_v = fd1 ? trim(fd1.read('all') || '') : '';
+			if (fd1) fd1.close();
+			const fd2 = popen(`uci -q get ${CONF}.${id}.mac 2>/dev/null`);
+			const mac_v = fd2 ? trim(fd2.read('all') || '') : '';
+			if (fd2) fd2.close();
+			const temps = read_temps();
+			if (length(ip_v))
+				delete temps[ip_v];
+			if (length(mac_v))
+				delete temps[mac_v];
+			write_temps(temps);
+			add_event('temp', id, 'temporary block removed');
+			restart_apply();
+			return { result: true };
+		}
+	},
+
+	/* Add a client by hand: name + ip and/or mac. */
+	client_add: {
+		args: { name: 'name', ip: 'ip', mac: 'mac' },
+		call: function(req) {
+			const name = trim(req.args?.name || '');
+			const ip = trim(req.args?.ip || '');
+			const mac = trim(req.args?.mac || '');
+			if (!name && !ip && !mac)
+				return { result: false, error: 'nothing to add' };
+			if (ip && !match(ip, /^(\d{1,3}\.){3}\d{1,3}$/))
+				return { result: false, error: 'invalid ip' };
+			if (mac && !match(mac, /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/))
+				return { result: false, error: 'invalid mac' };
+			/* uci add prints the new section id to stdout; use popen.
+			 * Only ONE add here (an earlier `system(uci add)` would create
+			 * a stray empty section). */
+			const fd = popen(`uci -q add ${CONF} client`);
+			const newid = trim((fd && fd.read('line')) || '');
+			if (fd)
+				fd.close();
+			if (!length(newid))
+				return { result: false, error: 'uci add failed' };
+			if (length(name))
+				system(`uci -q set ${CONF}.${newid}.name='${replace(name, "'", '')}'`);
+			if (length(ip))
+				system(`uci -q set ${CONF}.${newid}.ip='${ip}'`);
+			if (length(mac))
+				system(`uci -q set ${CONF}.${newid}.mac='${mac}'`);
+			system(`uci -q set ${CONF}.${newid}.blocked='0'`);
+			system(`uci -q commit ${CONF}`);
+			add_event('system', name || ip || mac, 'client added');
+			restart_apply();
+			return { result: true, id: newid };
+		}	},
+
+	client_delete: {
+		args: { id: 'id' },
+		call: function(req) {
+			const id = req.args?.id;
+			if (!id)
+				return { result: false, error: 'missing id' };
+			system(`uci -q delete ${CONF}.${shellquote(id)}`);
+			system(`uci -q commit ${CONF}`);
+			add_event('system', id, 'client deleted');
+			restart_apply();
+			return { result: true };
+		}
+	},
+
+	/* WiFi status from wireless config. */
+	wifi_status: {
+		call: function(req) {
+			const out = [];
+			const fd = popen(`ubus call network.wireless status 2>/dev/null`);
+			if (!fd)
+				return { radios: [] };
+			const raw = fd.read('all');
+			fd.close();
+			let st = null;
+			try { st = json(raw); } catch (e) { st = null; }
+			if (!st)
+				return { radios: [] };
+			const radios = [];
+			for (let radio in st)
+				push(radios, radio);
+			for (let ri = 0; ri < length(radios); ri++) {
+				const radio = radios[ri];
+				const r = st[radio];
+				const ifaces = [];
+				const confs = r.interfaces || [];
+				for (let i = 0; i < length(confs); i++) {
+					const cf = confs[i];
+					const iid = cf.section || '';
+					let up = false, ssid = '';
+					const cfg = cf.config || {};
+					up = (r.up === true) && !(cfg.disabled === true);
+					ssid = cfg.ssid || '';
+					push(ifaces, {
+						id: iid,
+						ssid: ssid,
+						up: up,
+						disabled: (cfg.disabled === true)
+					});
+				}
+				push(out, { radio: radio, up: r.up === true, ifaces: ifaces });
+			}
+			return { radios: out };
+		}
+	},
+
+	/* Toggle a wireless iface on/off (managed override). */
+	wifi_set: {
+		args: { iface: 'iface', disabled: 'disabled' },
+		call: function(req) {
+			const iface = req.args?.iface;
+			if (!iface || !match(iface, /^[A-Za-z0-9_]+$/))
+				return { result: false, error: 'bad iface' };
+			const dis = (req.args?.disabled === true || req.args?.disabled === '1') ? '1' : '0';
+			if (dis === '1') {
+				system(`uci -q set wireless.${iface}.disabled='1'`);
+				add_event('wifi', iface, 'turned off');
+			} else {
+				system(`uci -q delete wireless.${iface}.disabled`);
+				add_event('wifi', iface, 'turned on');
+			}
+			system(`uci -q commit wireless`);
+			system(`wifi reload 2>/dev/null`);
+			return { result: true };
+		}
+	},
+
+	/* Events journal (last N). */
+	events: {
+		args: { limit: 'limit' },
+		call: function(req) {
+			let events = [];
+			if (access(EVENTS_PATH)) {
+				try { events = json(readfile(EVENTS_PATH)); } catch (e) { events = []; }
+			}
+			const limit = int(req.args?.limit) || 100;
+			const start = max(0, length(events) - limit);
+			const out = [];
+			for (let i = start; i < length(events); i++)
+				push(out, events[i]);
+			return { events: out };
+		}
+	},
+
+	log_tail: {
+		args: { lines: 'lines' },
+		call: function(req) {
+			const n = int(req.args?.lines) || 50;
+			const fd = popen(`tail -n ${n} ${shellquote(LOG_PATH)} 2>/dev/null`);
+			if (!fd)
+				return { content: '' };
+			const raw = fd.read('all');
+			fd.close();
+			return { content: raw || '' };
+		}
+	}
+
+};
+
+return { 'luci.homecontrol': methods };
