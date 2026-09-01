@@ -63,7 +63,13 @@ function github_latest() {
 }
 
 function pkg_ext() {
-	return (access('/bin/apk') || access('/sbin/apk')) ? 'apk' : 'ipk';
+	/* Portable detection: apk may live in /bin, /sbin or /usr/bin
+	 * (25.12 has /usr/bin/apk). opkg is the only other supported mgr. */
+	const fd = popen('command -v apk 2>/dev/null');
+	const p = fd ? trim((fd.read('all') || '')) : '';
+	if (fd)
+		fd.close();
+	return length(p) ? 'apk' : 'ipk';
 }
 
 function status_overview() {
@@ -440,9 +446,17 @@ const methods = {
 				return { result: false, error: 'no release data' };
 
 			let url = null;
+			/* NOTE: ucode match() with a STRING pattern is broken on this
+			 * build (returns null even for present substrings) — use regex
+			 * literals or explicit substring checks. Here ext is dynamic,
+			 * so do plain prefix/suffix matching. */
+			const aprefix = 'luci-app-homecontrol_';
+			const asuffix = '_all.' + ext;
 			for (let i = 0; i < length(rel.assets); i++) {
 				const a = rel.assets[i];
-				if (match(a.name, `^luci-app-homecontrol_[^/]*_all\\.${ext}\$`)) {
+				if (a.name && length(a.name) > length(aprefix) + length(asuffix) &&
+					substr(a.name, 0, length(aprefix)) === aprefix &&
+					substr(a.name, length(a.name) - length(asuffix)) === asuffix) {
 					url = a.browser_download_url;
 					break;
 				}
@@ -455,8 +469,11 @@ const methods = {
 			if (!access(dl))
 				return { result: false, error: 'download failed' };
 
+			/* NOTE: apk-tools 3 treats a quoted path ('/tmp/x.apk') as a
+			 * package name -> "not found". Do NOT shellquote the path for
+			 * apk; it is a fixed /tmp path we built ourselves, no spaces. */
 			const cmd = (ext === 'apk')
-				? `apk add --allow-untrusted ${shellquote(dl)}`
+				? `apk add --allow-untrusted ${dl}`
 				: `opkg install --force-reinstall ${shellquote(dl)}`;
 			add_event('update', '', `downloading and installing ${ext} update`);
 			system(`( sleep 1; ${shellquote(cmd)} >/tmp/homecontrol-update.log 2>&1 ) &`);
