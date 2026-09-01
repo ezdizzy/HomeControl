@@ -2,3 +2,4 @@
 *.ipk
 *.tar.gz
 node_modules/
+LOCAL_DOCS/

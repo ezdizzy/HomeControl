@@ -470,3 +470,223 @@ msgstr "Расписания: проверяются службой каждую
 #: htdocs/luci-static/resources/view/homecontrol/settings.js
 msgid "Pause switch (Dashboard): disables all temporary and scheduled blocks at once — useful for parents."
 msgstr "Пауза (Панель): мгновенно отключает все временные и плановые блокировки — удобно для родителей."
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "Rule time windows: outside the window the rule is skipped — sites are reachable again automatically."
+msgstr "Окна времени правил: вне окна правило не действует — сайты снова доступны автоматически."
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "Application"
+msgstr "Приложение"
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "Check for updates"
+msgstr "Проверить обновления"
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "Checking…"
+msgstr "Проверка…"
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "Up to date"
+msgstr "Актуальная версия"
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "Update available"
+msgstr "Доступно обновление"
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "Download and install"
+msgstr "Скачать и установить"
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "Install update"
+msgstr "Установить обновление"
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "The new version will be downloaded and installed now. This may take a minute; the page will need a refresh afterwards."
+msgstr "Сейчас будет скачана и установлена новая версия. Это займёт около минуты; после установки обновите страницу."
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "Update started — wait about a minute, then reload this page."
+msgstr "Обновление запущено — подождите около минуты и перезагрузите страницу."
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "Update failed"
+msgstr "Ошибка обновления"
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "Check failed (no internet?)"
+msgstr "Проверка не удалась (нет интернета?)"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "Block %s for..."
+msgstr "Блокировать %s на…"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "Block for a custom time"
+msgstr "Блокировать на произвольное время"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "Access will be restored automatically when the time is up."
+msgstr "Доступ восстановится автоматически по истечении времени."
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "Enter a positive number"
+msgstr "Введите положительное число"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "minutes"
+msgstr "минут"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "hours"
+msgstr "часов"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "days"
+msgstr "дней"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "min"
+msgstr "мин"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "h"
+msgstr "ч"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "d"
+msgstr "д"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "Temp"
+msgstr "Врем."
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "IP address"
+msgstr "IP-адрес"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "MAC address"
+msgstr "MAC-адрес"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "Name"
+msgstr "Имя"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "Client list refreshes automatically."
+msgstr "Список клиентов обновляется автоматически."
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Active from (optional)"
+msgstr "Активно с (опционально)"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Active until (optional)"
+msgstr "Активно до (опционально)"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Date from (optional)"
+msgstr "Дата с (опционально)"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Date until (optional)"
+msgstr "Дата до (опционально)"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "One entry per line. Domains are blocked via DNS; IPs/subnets via the firewall."
+msgstr "По одной записи на строку. Домены блокируются через DNS; IP/подсети — через firewall."
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Always"
+msgstr "Всегда"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Paused"
+msgstr "Приостановлено"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Temporarily allow (pause this rule)"
+msgstr "Временно разрешить (пауза правила)"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Pause \"%s\" for..."
+msgstr "Приостановить «%s» на…"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "The rule will start working again automatically when the time is up."
+msgstr "Правило снова заработает автоматически по истечении времени."
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Resume immediately"
+msgstr "Возобновить сейчас"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Block access to sites and resources for the whole network. Optionally limit each rule to a time window — outside the window the sites are reachable again automatically."
+msgstr "Блокируйте доступ к сайтам и ресурсам для всей сети. Опционально ограничьте правило окном времени — вне окна сайты снова доступны автоматически."
+
+#: htdocs/luci-static/resources/view/homecontrol/wifi.js
+msgid "Turn off %s for..."
+msgstr "Выключить %s на…"
+
+#: htdocs/luci-static/resources/view/homecontrol/wifi.js
+msgid "Wi-Fi will turn back on automatically when the time is up."
+msgstr "Wi-Fi включится автоматически по истечении времени."
+
+#: htdocs/luci-static/resources/view/homecontrol/wifi.js
+msgid "Off until"
+msgstr "Выключено до"
+
+#: htdocs/luci-static/resources/view/homecontrol/wifi.js
+msgid "then auto-on"
+msgstr "затем включится само"
+
+#: htdocs/luci-static/resources/view/homecontrol/wifi.js
+msgid "On now"
+msgstr "Включить сейчас"
+
+#: htdocs/luci-static/resources/view/homecontrol/wifi.js
+msgid "Cancel the temporary off"
+msgstr "Отменить временное выключение"
+
+#: htdocs/luci-static/resources/view/homecontrol/wifi.js
+msgid "Turn wireless on/off, or off for a while — it comes back automatically. Schedules (Schedules tab) can turn Wi-Fi off and on on a recurring pattern."
+msgstr "Включайте/выключайте Wi-Fi, или выключите на время — включится автоматически. Расписания (вкладка Расписания) умеют включать и выключать Wi-Fi регулярно."
+
+#: htdocs/luci-static/resources/view/homecontrol/wifi.js
+msgid "Turn off for a custom time"
+msgstr "Выключить на произвольное время"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "%d client(s)"
+msgstr "%d клиент(ов)"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "%d Wi-Fi"
+msgstr "%d Wi-Fi"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Only during window"
+msgstr "Только в окне"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Time from"
+msgstr "Время с"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Time to"
+msgstr "Время до"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Date from (range/timer)"
+msgstr "Дата с (диапазон/таймер)"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Date to (range/timer)"
+msgstr "Дата до (диапазон/таймер)"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Days of week (weekly)"
+msgstr "Дни недели (еженедельно)"

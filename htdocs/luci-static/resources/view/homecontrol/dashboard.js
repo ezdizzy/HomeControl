@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: GPL-2.0-only
  *
  * HomeControl - Dashboard: global status card, client grid with color-coded
- * state badges and quick actions, live-polled.
+ * state badges and quick actions (instant block / custom-time temp block).
  */
 
 'use strict';
@@ -43,23 +43,24 @@ const callApply = rpc.declare({
 });
 
 const CSS = `
-	.hc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-top: 8px; }
-	.hc-card { border: 1px solid rgba(128,128,128,.3); border-radius: 10px; padding: 10px 12px; background: rgba(127,127,127,.04); }
+	.hc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; margin-top: 10px; }
+	.hc-card { border: 1px solid rgba(128,128,128,.3); border-radius: 10px; padding: 12px 14px; background: rgba(127,127,127,.04); }
 	.hc-card.hc-blocked { border-left: 5px solid #d9534f; }
 	.hc-card.hc-allowed { border-left: 5px solid #5cb85c; }
 	.hc-card.hc-offline { opacity: .65; }
-	.hc-name { font-weight: 600; font-size: 1.05em; margin-bottom: 2px; display: flex; align-items: center; gap: 8px; }
-	.hc-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+	.hc-name { font-weight: 600; font-size: 1.05em; margin-bottom: 2px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+	.hc-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; }
 	.hc-dot.on { background: #5cb85c; box-shadow: 0 0 4px #5cb85c; }
 	.hc-dot.off { background: #999; }
-	.hc-meta { color: #888; font-size: .85em; margin-bottom: 8px; }
-	.hc-badge { font-size: .75em; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+	.hc-meta { color: #888; font-size: .85em; margin-bottom: 10px; word-break: break-all; }
+	.hc-badge { font-size: .75em; padding: 2px 8px; border-radius: 10px; font-weight: 600; white-space: nowrap; }
 	.hc-badge.b-block { background: rgba(217,83,79,.15); color: #d9534f; }
 	.hc-badge.b-allow { background: rgba(92,184,92,.15); color: #5cb85c; }
 	.hc-badge.b-temp { background: rgba(240,173,78,.2); color: #c77c11; }
 	.hc-badge.b-sched { background: rgba(91,140,255,.18); color: #4a7fe0; }
 	.hc-actions { display: flex; gap: 6px; flex-wrap: wrap; }
-	.hc-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: 10px; margin: 8px 0 18px; }
+	.hc-actions .btn { flex: none; }
+	.hc-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: 10px; margin: 10px 0 18px; }
 	.hc-stat { border: 1px solid rgba(128,128,128,.3); border-radius: 10px; padding: 12px; text-align: center; }
 	.hc-stat .n { font-size: 1.9em; font-weight: 700; line-height: 1.1; }
 	.hc-stat .l { color: #888; font-size: .85em; }
@@ -80,6 +81,50 @@ function badge(state, reason) {
 	return E('span', { 'class': 'hc-badge b-allow' }, [_('Allowed')]);
 }
 
+/* remaining minutes until epoch -> "1ч 05м" style string */
+function fmt_remaining(until) {
+	const m = Math.max(0, Math.round((until * 1000 - Date.now()) / 60000));
+	if (m < 60)
+		return m + ' ' + _('min');
+	const h = Math.floor(m / 60), mm = m % 60;
+	if (h < 24)
+		return h + ' ' + _('h') + (mm ? (' ' + mm + ' ' + _('min')) : '');
+	const d = Math.floor(h / 24);
+	return d + ' ' + _('d') + ' ' + (h % 24) + ' ' + _('h');
+}
+
+/* Shared custom-time modal: onOk(minutes) */
+function customTimeModal(title, defMinutes, onOk) {
+	const inVal = E('input', { 'type': 'number', 'min': '1', 'class': 'cbi-input-text', 'value': String(defMinutes) });
+	const selUnit = E('select', { 'class': 'cbi-input-select' }, [
+		E('option', { 'value': '1' }, [_('minutes')]),
+		E('option', { 'value': '60', 'selected': 'selected' }, [_('hours')]),
+		E('option', { 'value': '1440' }, [_('days')])
+	]);
+	const row = E('div', { 'style': 'display:flex; gap:8px; align-items:center' }, [ inVal, selUnit ]);
+
+	ui.showModal(title, [
+		E('p', {}, [ _('Access will be restored automatically when the time is up.') ]),
+		row,
+		E('div', { 'class': 'right', 'style': 'margin-top:14px' }, [
+			E('button', { 'class': 'btn', 'click': ui.hideModal }, [ _('Cancel') ]),
+			E('button', {
+				'class': 'btn cbi-button-positive important',
+				'click': function() {
+					const v = parseInt(inVal.value, 10);
+					const u = parseInt(selUnit.value, 10);
+					if (!v || v < 1) {
+						ui.addNotification('error', _('Enter a positive number'));
+						return;
+					}
+					ui.hideModal();
+					onOk(v * u);
+				}
+			}, [ _('Apply') ])
+		])
+	]);
+}
+
 return view.extend({
 	load: function() {
 		return Promise.all([ uci.load('homecontrol') ]);
@@ -91,10 +136,11 @@ return view.extend({
 		const statsBl = E('div', { 'class': 'n' }, '—');
 		const statsAl = E('div', { 'class': 'n' }, '—');
 		const statsSc = E('div', { 'class': 'n' }, '—');
+		const view = this;
 
 		const pauseBtn = E('button', {
 			'class': 'btn cbi-button',
-			'click': ui.createHandlerFn(this, function(ev) {
+			'click': ui.createHandlerFn(this, function() {
 				const cur = this.paused === true;
 				return L.resolveDefault(callSetPaused({ paused: !cur }), {}).then(function() {
 					return L.resolveDefault(callApply(), {});
@@ -113,8 +159,6 @@ return view.extend({
 			E('div', { 'class': 'hc-stat green' }, [ statsAl, E('div', { 'class': 'l' }, [_('Allowed')]) ]),
 			E('div', { 'class': 'hc-stat blue' }, [ statsSc, E('div', { 'class': 'l' }, [_('Active schedules')]) ])
 		]);
-
-		const view = this;
 
 		function refresh() {
 			return L.resolveDefault(callStatus(), {}).then(function(st) {
@@ -141,7 +185,9 @@ return view.extend({
 				statsAl.textContent = st.allowed;
 				statsSc.textContent = st.schedules;
 
-				const sig = JSON.stringify(st.clients) + '|' + st.enabled + '|' + st.paused;
+				/* cards re-render cheaply enough; signature includes until so
+				 * countdowns stay live */
+				const sig = JSON.stringify(st.clients);
 				if (sig === refresh._sig)
 					return;
 				refresh._sig = sig;
@@ -154,13 +200,17 @@ return view.extend({
 
 				for (let i = 0; i < st.clients.length; i++) {
 					const c = st.clients[i];
-					const blocked = (c.state === 'block');
+					const blocked = c.blocked;
+
+					let badgeEl = badge(c.blocked ? 'block' : 'allow', c.reason);
+					if (c.reason === 'temp' && c.until)
+						badgeEl.appendChild(document.createTextNode(' · ' + fmt_remaining(c.until)));
 
 					const card = E('div', { 'class': 'hc-card ' + (blocked ? 'hc-blocked' : 'hc-allowed') + (c.online ? '' : ' hc-offline') }, [
 						E('div', { 'class': 'hc-name' }, [
 							E('span', { 'class': 'hc-dot ' + (c.online ? 'on' : 'off'), 'title': c.online ? _('Online') : _('Offline') }),
-							c.name,
-							badge(c.state, c.reason)
+							E('span', {}, [ c.name ]),
+							badgeEl
 						]),
 						E('div', { 'class': 'hc-meta' }, [
 							[c.ip, c.mac].filter(Boolean).join(' · ') || _('no address known')
@@ -175,12 +225,14 @@ return view.extend({
 							}, [ blocked ? _('Allow') : _('Block') ]),
 							E('button', {
 								'class': 'btn cbi-button',
-								'title': _('Block for one hour'),
-								'click': ui.createHandlerFn(view, function() {
-									return L.resolveDefault(callTempBlock({ id: c.id, minutes: 60 }), {})
-										.then(function() { return L.resolveDefault(callApply(), {}); });
-								})
-							}, [ _('Block 1h') ])
+								'title': _('Block for a custom time'),
+								'click': function() {
+									customTimeModal(_('Block %s for...').format(c.name), 2, function(minutes) {
+										L.resolveDefault(callTempBlock({ id: c.id, minutes: minutes }), {})
+											.then(function() { return L.resolveDefault(callApply(), {}); });
+									});
+								}
+							}, [ '⏱' ])
 						])
 					]);
 					grid.appendChild(card);

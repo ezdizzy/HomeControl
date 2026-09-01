@@ -1,157 +1,75 @@
 // SPDX-License-Identifier: GPL-2.0-only
 //
-// HomeControl enforcement engine: renders nftables rules, dnsmasq
-// configuration and wireless (WiFi) state from the UCI config.
+// HomeControl enforcement engine: renders nftables rules, dnsmasq config
+// and wireless state from the UCI config.
 //
-// Usage:
-//   ucode -L /etc/homecontrol/scripts /etc/homecontrol/scripts/apply.uc
+// Usage: ucode -L /etc/homecontrol/scripts /etc/homecontrol/scripts/apply.uc
 //
-// Exit codes: 0 = applied, 1 = failed.
+// Enforcement model:
+//   - blocked clients  -> nft set blocked_v4 (src drop) + blocked_macs
+//   - rule IP targets  -> nft set blocked_rule_v4 (dst drop/reject, all LAN)
+//   - rule domains     -> dnsmasq server=/domain/ (NXDOMAIN), only when the
+//                         rule's time window is active
+//   - Wi-Fi            -> wireless.<iface>.disabled + marker files; auto
+//                         restored when a window closes or temp marker expires
 
 'use strict';
 
-import { readfile, access, writefile, popen } from 'fs';
+import { access, readfile, writefile, popen } from 'fs';
 import {
-	CONF, RUN_DIR, NFT_PRE, atomic_write, mkdir_p, get_sections,
-	sec_opt, main_opt, get_schedules, schedule_active, read_temps,
-	log, add_event
+	RUN_DIR, atomic_write, mkdir_p, get_sections, main_opt,
+	client_states, active_rules, wifi_off_map, read_wifi_temps, log
 } from 'homecontrol';
 
-const DNSMASQ_DIR = '/tmp/dnsmasq.d/homecontrol.d';
-
-/* Resolve the active dnsmasq conf-dir at runtime: OpenWrt names it
- * /tmp/dnsmasq.conf.cfgXXXXX on disk and points conf-dir at a section-named
- * directory (e.g. /tmp/dnsmasq.cfg01411c.d), not statically. */
+/* Resolve the active dnsmasq conf-dir at runtime (OpenWrt names it after the
+ * dnsmasq section, e.g. /tmp/dnsmasq.cfg01411c.d). */
 function dnsmasq_conf_dir() {
 	const fd = popen(
 		`grep -m1 -h "^conf-dir=" /var/etc/dnsmasq.conf.* 2>/dev/null | sed -n "s/^conf-dir=//p" | head -n1`);
 	if (!fd)
-		return DNSMASQ_DIR;
+		return '/tmp/dnsmasq.d/homecontrol.d';
 	let dir = trim((fd.read('all') || ''));
 	fd.close();
-	if (dir && access('/proc/')) {
-		/* strip trailing slash */
-		while (substr(dir, length(dir) - 1) === '/')
-			dir = substr(dir, 0, length(dir) - 1);
-	}
-	if (length(dir))
-		return dir;
-	return DNSMASQ_DIR;
+	while (length(dir) && substr(dir, length(dir) - 1) === '/')
+		dir = substr(dir, 0, length(dir) - 1);
+	return length(dir) ? dir : '/tmp/dnsmasq.d/homecontrol.d';
 }
 
 const CONF_DIR = dnsmasq_conf_dir();
 
-function sh(cmd) {
-	return system(cmd);
-}
-
-/* ── Collect clients ─────────────────────────────────────────────── */
-
-function collect_blocked_clients(now) {
-	/* Returns { ips: [], macs: [] } of currently blocked clients. */
-	const temps = read_temps();
-	const ips = [], macs = [];
-	const clients = get_sections('client');
-	const paused = main_opt('paused', '0') === '1';
-
-	if (paused)
-		return { ips: ips, macs: macs };
-
-	for (let i = 0; i < length(clients); i++) {
-		const c = clients[i];
-		let blocked = false;
-
-		/* manual quick toggle */
-		if (c.blocked === '1')
-			blocked = true;
-
-		/* temporary block */
-		if (!blocked && c.ip && temps[c.ip])
-			blocked = true;
-		if (!blocked && c.mac && temps[c.mac])
-			blocked = true;
-
-		/* schedules referencing this client (deny action) */
-		if (!blocked) {
-			const schs = get_schedules();
-			for (let j = 0; j < length(schs); j++) {
-				const s = schs[j];
-				const cids = s.client_ids || [];
-				if (!length(cids))
-					continue;
-				let mine = false;
-				for (let k = 0; k < length(cids); k++)
-					if (cids[k] === c.id || cids[k] === c.name)
-						mine = true;
-				if (!mine)
-					continue;
-				if (schedule_active(s, now) && (s.action || 'deny') === 'deny') {
-					blocked = true;
-					break;
-				}
-			}
-		}
-
-		if (blocked) {
-			if (c.ip)
-				push(ips, c.ip);
-			if (c.mac)
-				push(macs, c.mac);
-		}
-	}
-	return { ips: ips, macs: macs };
-}
-
-/* Collect WiFi overrides currently enforced (iface -> disabled state).
- * A schedule may force a wifi iface off. Returns { iface_name: true }. */
-function collect_wifi_off(now) {
-	const off = {};
-	const schs = get_schedules();
-	const wifis = get_sections('wifi');
-	for (let j = 0; j < length(schs); j++) {
-		const s = schs[j];
-		const wids = s.wifi_ids || [];
-		if (!length(wids))
-			continue;
-		if (!schedule_active(s, now))
-			continue;
-		if ((s.action || 'deny') !== 'deny')
-			continue;
-		for (let k = 0; k < length(wids); k++)
-			for (let n = 0; n < length(wifis); n++)
-				if (wifis[n].id === wids[k] || wifis[n].name === wids[k])
-					off[wifis[n].network] = true;
-	}
-	return off;
-}
-
 /* ── nftables render ─────────────────────────────────────────────── */
 
-function render_nft(blocked) {
+function render_nft(ips, macs, rule_ips) {
 	const lines = [];
-	const ips = length(blocked.ips) ? uniq(blocked.ips) : [];
-	const macs = length(blocked.macs) ? uniq(blocked.macs) : [];
+	const ipL = length(ips) ? uniq(ips) : [];
+	const macL = length(macs) ? uniq(macs) : [];
+	const ripL = length(rule_ips) ? uniq(rule_ips) : [];
 
-	/* Note: this ucode build has no Array.prototype.push, so use the
-	 * global push() and join() builtins explicitly. */
 	push(lines, `table inet homecontrol`);
 	push(lines, `delete table inet homecontrol`);
 	push(lines, `table inet homecontrol {`);
 	push(lines, `	set blocked_v4 {`);
 	push(lines, `		type ipv4_addr`);
 	push(lines, `		flags interval`);
-	if (length(ips))
-		push(lines, `		elements = { ${join(', ', ips)} }`);
+	if (length(ipL))
+		push(lines, `		elements = { ${join(', ', ipL)} }`);
 	push(lines, `	}`);
 	push(lines, `	set blocked_macs {`);
 	push(lines, `		type ether_addr`);
-	if (length(macs))
-		push(lines, `		elements = { ${join(', ', macs)} }`);
+	if (length(macL))
+		push(lines, `		elements = { ${join(', ', macL)} }`);
+	push(lines, `	}`);
+	push(lines, `	set blocked_rule_v4 {`);
+	push(lines, `		type ipv4_addr`);
+	push(lines, `		flags interval`);
+	if (length(ripL))
+		push(lines, `		elements = { ${join(', ', ripL)} }`);
 	push(lines, `	}`);
 	push(lines, `	chain block_forward {`);
 	push(lines, `		type filter hook forward priority -100; policy accept;`);
 	push(lines, `		ip saddr @blocked_v4 counter drop`);
 	push(lines, `		ether saddr @blocked_macs counter drop`);
+	push(lines, `		ip daddr @blocked_rule_v4 counter drop`);
 	push(lines, `	}`);
 	push(lines, `	chain block_output_reject {`);
 	push(lines, `		type filter hook output priority -100; policy accept;`);
@@ -162,82 +80,102 @@ function render_nft(blocked) {
 	return join('\n', lines) + '\n';
 }
 
-/* ── dnsmasq render (site blocking via rules) ────────────────────── */
+/* ── dnsmasq render (domain rules) ───────────────────────────────── */
 
-function render_dnsmasq() {
+function render_dnsmasq(rules) {
 	mkdir_p(CONF_DIR);
-
-	/* Collect domains from enabled rules with action=block and type=domain. */
-	const domains = [];
-	const addresses = []; /* ip targets to blackhole */
-	const rules = get_sections('rule');
-
+	const out = [];
 	for (let i = 0; i < length(rules); i++) {
 		const r = rules[i];
-		if (r.enabled !== '1')
+		if ((r.type || 'domain') !== 'domain')
 			continue;
 		const targets = r.target || [];
-		for (let k = 0; k < length(targets); k++) {
-			const t = targets[k];
-			if (r.type === 'domain' && length(t) > 2)
-				push(domains, t);
-			else if (r.type === 'ip')
-				push(addresses, t);
+		for (let k = 0; k < length(targets); k++)
+			if (length(targets[k]) > 2)
+				push(out, `server=/${targets[k]}/`);
+	}
+	const content = length(out) ? (join('\n', out) + '\n') : '';
+
+	/* Skip restart when content did not change (avoids DNS blips). */
+	const path = CONF_DIR + '/blocked.conf';
+	const old = access(path) ? readfile(path) : '';
+	if (old === content)
+		return false;
+	atomic_write(path, content);
+	return true;
+}
+
+/* ── wireless management ─────────────────────────────────────────── */
+
+/* Only touch ifaces we manage: those in the off map, the registry, or
+ * ifaces we disabled before (markers) — the last group must be enumerated
+ * so we can restore them after a window closes / temp marker expires. */
+function apply_wifi(off_map) {
+	const wifis = get_sections('wifi');
+	const managed = {};
+	for (let k in off_map)
+		managed[k] = true;
+	for (let i = 0; i < length(wifis); i++)
+		if (wifis[i].network)
+			managed[wifis[i].network] = true;
+
+	/* ifaces with our markers (off/on/temp) are ours to restore/clean */
+	const fd0 = popen(`ls ${RUN_DIR}/wifi.off.* ${RUN_DIR}/wifi.on.* ${RUN_DIR}/wifi.temp.* 2>/dev/null`);
+	if (fd0) {
+		const raw0 = fd0.read('all') || '';
+		fd0.close();
+		const files0 = split(trim(raw0), /\n/);
+		for (let i = 0; i < length(files0); i++) {
+			const m = match(trim(files0[i]), /wifi\.(off|on|temp)\.(.+)$/);
+			if (m && length(m[2]))
+				managed[m[2]] = true;
 		}
 	}
 
-	/* Global block: server config to answer blocked domains with NXDOMAIN.
-	 * Applied for ALL LAN clients via the shared conf-dir. */
-	const out = [];
-	for (let i = 0; i < length(domains); i++)
-		push(out, `server=/${domains[i]}/`);
-	atomic_write(CONF_DIR + '/blocked.conf', join('\n', out) + (length(out) ? '\n' : ''));
-
-	return {
-		domains: length(domains),
-		ips: length(addresses)
-	};
-}
-
-/* ── wireless render (managed WiFi on/off) ───────────────────────── */
-
-function apply_wifi(off_map) {
-	const wifis = get_sections('wifi');
 	let changed = false;
-
-	for (let i = 0; i < length(wifis); i++) {
-		const w = wifis[i];
-		const iface = w.network;
+	for (let iface in managed) {
 		if (!iface)
 			continue;
-		const want_off = (off_map[iface] === true) || (w.disabled === '1');
-		const cur = system(`uci -q get wireless.\${iface}.disabled 2>/dev/null; echo `);
+		const want_off = (off_map[iface] === true);
+		const offMarker = `${RUN_DIR}/wifi.off.${iface}`;
+		const onMarker = `${RUN_DIR}/wifi.on.${iface}`;
 
-		/* We only manage ifaces we are configured to manage. */
+		const fd = popen(`uci -q get wireless.${iface}.disabled 2>/dev/null`);
+		const cur = fd ? trim((fd.read('all') || '')) : '';
+		if (fd)
+			fd.close();
+
 		if (want_off) {
-			if (system(`uci -q get wireless.\${iface}.disabled | grep -q 1`) !== 0) {
-				sh(`uci -q set wireless.${iface}.disabled='1'`);
+			system(`rm -f '${onMarker}'`);
+			if (cur !== '1') {
+				system(`uci -q set wireless.${iface}.disabled='1'`);
+				system(`touch '${offMarker}'`);
+				add_event('wifi', iface, 'turned off (schedule/timer)');
 				changed = true;
-				add_event('wifi', iface, 'disabled by rule');
 			}
-		} else if (w.disabled !== '1') {
-			/* Only re-enable if we disabled it before (marker file). */
-			if (access(RUN_DIR + '/wifi.off.' + iface)) {
-				sh(`uci -q delete wireless.${iface}.disabled`);
-				sh(`rm -f '${RUN_DIR}/wifi.off.${iface}'`);
-				changed = true;
-				add_event('wifi', iface, 'enabled');
+		} else {
+			/* Window closed: re-enable only what WE disabled. */
+			if (access(offMarker)) {
+				system(`rm -f '${offMarker}'`);
+				if (cur === '1') {
+					system(`uci -q delete wireless.${iface}.disabled`);
+					add_event('wifi', iface, 'turned on (window ended)');
+					changed = true;
+				}
 			}
 		}
 
-		if (want_off)
-			sh(`touch '${RUN_DIR}/wifi.off.${iface}'`);
-		else
-			sh(`rm -f '${RUN_DIR}/wifi.off.${iface}'`);
+		/* drop expired temp markers */
+		const tempMarker = `${RUN_DIR}/wifi.temp.${iface}`;
+		if (access(tempMarker)) {
+			const tu = int(trim(readfile(tempMarker) || '')) || 0;
+			if (tu <= now)
+				system(`rm -f '${tempMarker}'`);
+		}
 	}
 
 	if (changed)
-		sh(`wifi reload`);
+		system(`wifi reload 2>/dev/null`);
 	return changed;
 }
 
@@ -249,18 +187,42 @@ mkdir_p(CONF_DIR);
 const now = time();
 const enabled = main_opt('enabled', '0') === '1';
 
-let blocked = { ips: [], macs: [] };
-if (enabled)
-	blocked = collect_blocked_clients(now);
+let ips = [], macs = [], rule_ips = [];
+let rules = [];
+let woff = {};
 
-const dns_stat = render_dnsmasq();
-writefile(NFT_PRE, render_nft(blocked));
-sh(`nft -f '${NFT_PRE}' 2>/dev/null`);
+if (enabled) {
+	const states = client_states(now);
+	for (let i = 0; i < length(states); i++) {
+		if (!states[i].blocked)
+			continue;
+		if (states[i].ip)
+			push(ips, states[i].ip);
+		if (states[i].mac)
+			push(macs, states[i].mac);
+	}
 
-if (enabled)
-	apply_wifi(collect_wifi_off(now));
+	rules = active_rules(now);
+	for (let i = 0; i < length(rules); i++) {
+		if ((rules[i].type || '') !== 'ip')
+			continue;
+		const targets = rules[i].target || [];
+		for (let k = 0; k < length(targets); k++)
+			push(rule_ips, targets[k]);
+	}
 
-sh(`/etc/init.d/dnsmasq restart >/dev/null 2>&1`);
+	woff = wifi_off_map(now);
+}
 
-log(`applied: enabled=${enabled} blocked_v4=${length(blocked.ips)} blocked_macs=${length(blocked.macs)} dns_domains=${dns_stat.domains}`);
-print(`homecontrol applied: ${length(blocked.ips)} ip, ${length(blocked.macs)} mac, ${dns_stat.domains} domains\n`);
+const nft_file = RUN_DIR + '/fw4_pre.nft';
+writefile(nft_file, render_nft(ips, macs, rule_ips));
+system(`nft -f '${nft_file}' 2>/dev/null`);
+
+const dns_changed = render_dnsmasq(rules);
+if (dns_changed)
+	system(`/etc/init.d/dnsmasq restart >/dev/null 2>&1`);
+
+apply_wifi(woff);
+
+log(`applied: enabled=${enabled} clients=${length(ips)}/${length(macs)} rule_ips=${length(rule_ips)} dns_domains_applied=${length(rules) ? 'y' : 'n'} dns_restart=${dns_changed ? 'y' : 'n'} wifi_off=${length(keys(woff))}`);
+print(`homecontrol applied: ${length(ips)} ip, ${length(macs)} mac, ${length(rule_ips)} rule-ip\n`);

@@ -5,17 +5,24 @@
  * HomeControl rpcd backend: ubus object "luci.homecontrol" for the LuCI app.
  * Deployed to /usr/share/rpcd/ucode/luci.homecontrol. Executed by rpcd's
  * ucode interpreter, which runs the file as a program and takes the returned
- * object: the file must END with `return { 'luci.homecontrol': methods }`,
- * and rpcd wraps the whole file into a function body (so bare top-level
- * `return` is valid for rpcd but NOT for `ucode -c` or direct import —
- * to syntax-check this file, run it through rpcd or use uci-defaults-time
- * wrap trick below).
+ * object. To syntax-check locally, wrap the source in a function body (top
+ * level `return` is rpcd-specific, not valid in plain ucode execution).
  */
 
 'use strict';
 
-import { access, readfile, popen, open } from 'fs';
-import { RUN_DIR, EVENTS_PATH, LOG_PATH, CONF, get_sections, sec_opt, main_opt, add_event, read_temps, write_temps, atomic_write, schedule_active, get_schedules, parse_hhmm } from '/etc/homecontrol/scripts/homecontrol.uc';
+import { access, readfile, popen, open, writefile } from 'fs';
+import {
+	RUN_DIR, EVENTS_PATH, LOG_PATH, CONF,
+	get_sections, main_opt, add_event,
+	read_temps, write_temps, atomic_write,
+	client_states, read_wifi_temps, wifi_temp_set, wifi_temp_clear,
+	schedule_active, get_schedules, active_rules, vercmp
+} from '/etc/homecontrol/scripts/homecontrol.uc';
+
+const VERSION_FILE = '/usr/share/homecontrol/version';
+const REPO = 'ezdizzy/HomeControl';
+const UPDATE_TMP = '/tmp/homecontrol-update';
 
 function shellquote(s) {
 	return `'${replace(s, "'", "'\\''")}'`;
@@ -30,92 +37,84 @@ function now_epoch() {
 	return time();
 }
 
-/* ── status ────────────────────────────────────────────────────────── */
+function current_version() {
+	return access(VERSION_FILE) ? trim(readfile(VERSION_FILE) || '') : 'dev';
+}
+
+/* Fetch the latest GitHub release. Returns {tag, assets:[{name,url}]} or null. */
+function github_latest() {
+	const fd = popen(`wget -qO- --timeout=10 "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null`);
+	if (!fd)
+		return null;
+	const raw = fd.read('all');
+	fd.close();
+	let rel = null;
+	try { rel = json(raw); } catch (e) { rel = null; }
+	if (!rel || !rel.tag_name)
+		return null;
+	const assets = [];
+	const list = rel.assets || [];
+	for (let i = 0; i < length(list); i++) {
+		const a = list[i];
+		if (a.name && a.browser_download_url)
+			push(assets, { name: a.name, url: a.browser_download_url });
+	}
+	return { tag: rel.tag_name, assets: assets };
+}
+
+function pkg_ext() {
+	return (access('/bin/apk') || access('/sbin/apk')) ? 'apk' : 'ipk';
+}
 
 function status_overview() {
-	const clients = get_sections('client');
-	const temps = read_temps();
-	const now = now_epoch();
-	let blocked = 0, allowed = 0, temp = 0;
-	const list = [];
+	const states = client_states(time());
 
-	for (let i = 0; i < length(clients); i++) {
-		const c = clients[i];
-		let state = 'allow', reason = '';
-		if (c.blocked === '1') {
-			state = 'block';
-			reason = 'manual';
-		} else if ((c.ip && temps[c.ip]) || (c.mac && temps[c.mac])) {
-			state = 'block';
-			reason = 'temp';
-			temp++;
-		} else {
-			const schs = get_schedules();
-			for (let j = 0; j < length(schs); j++) {
-				const s = schs[j];
-				const cids = s.client_ids || [];
-				let mine = false;
-				for (let k = 0; k < length(cids); k++)
-					if (cids[k] === c.id || cids[k] === c.name)
-						mine = true;
-				if (mine && schedule_active(s, now) && (s.action || 'deny') === 'deny') {
-					state = 'block';
-					reason = 'schedule';
-					break;
-				}
-			}
-		}
-		if (state === 'block') {
+	/* online detection via /proc/net/arp */
+	const arp = {};
+	const raw = readfile('/proc/net/arp') || '';
+	const lines = split(trim(raw), '\n');
+	for (let i = 1; i < length(lines); i++) {
+		const f = split(trim(lines[i]), /\s+/);
+		if (length(f) >= 6 && f[3] != '00:00:00:00:00:00')
+			arp[f[0]] = f[3];
+	}
+	for (let i = 0; i < length(states); i++)
+		states[i].online = (states[i].ip && (states[i].ip in arp)) ? true : false;
+
+	let blocked = 0, allowed = 0, temp = 0;
+	for (let i = 0; i < length(states); i++) {
+		if (states[i].blocked) {
 			blocked++;
-			if (reason === 'temp')
-				; /* counted */
-			else if (reason === 'manual')
-				; /* counted */
+			if (states[i].reason === 'temp')
+				temp++;
 		} else {
 			allowed++;
 		}
-		push(list, {
-			id: c.id,
-			name: c.name || c.ip || c.mac || '?',
-			ip: c.ip || '',
-			mac: c.mac || '',
-			state: state,
-			reason: reason
-		});
 	}
 
-	/* online detection: /proc/net/arp for MAC presence */
-	const arp = {};
-	const fd = open('/proc/net/arp', 'r');
-	if (fd) {
-		fd.read('all');
-		/* parse line-based */
-		const raw = readfile('/proc/net/arp') || '';
-		const lines = split(trim(raw), '\n');
-		for (let i = 1; i < length(lines); i++) {
-			const f = split(trim(lines[i]), /\s+/);
-			if (length(f) >= 6 && f[3] != '00:00:00:00:00:00')
-				arp[f[0]] = f[3];
-		}
-		fd.close();
-	}
-	for (let i = 0; i < length(list); i++) {
-		list[i].online = (list[i].ip && (list[i].ip in arp)) ? true : false;
+	/* rules paused-for info for the UI */
+	const now_ts = time();
+	const all_rules = get_sections('rule');
+	const paused_rules = {};
+	for (let i = 0; i < length(all_rules); i++) {
+		const du = int(all_rules[i].disabled_until) || 0;
+		if (du > now_ts)
+			paused_rules[all_rules[i].id] = du;
 	}
 
 	return {
 		enabled: main_opt('enabled', '0') === '1',
 		paused: main_opt('paused', '0') === '1',
-		clients_total: length(clients),
+		version: current_version(),
+		clients_total: length(states),
 		blocked: blocked,
 		allowed: allowed,
 		temp: temp,
 		schedules: length(get_schedules()),
-		clients: list
+		clients: states,
+		rules_paused: paused_rules
 	};
 }
-
-/* ── methods table ─────────────────────────────────────────────────── */
 
 const methods = {
 
@@ -125,7 +124,6 @@ const methods = {
 		}
 	},
 
-	/* Apply changes: rerun the enforcement engine. */
 	apply: {
 		call: function(req) {
 			restart_apply();
@@ -154,16 +152,18 @@ const methods = {
 			if (!id)
 				return { result: false, error: 'missing id' };
 			const b = (req.args?.blocked === true || req.args?.blocked === '1') ? '1' : '0';
-			system(`uci -q set ${CONF}.${shellquote(id)}.blocked='${b}'`);
+			system(`uci -q set ${CONF}.${id}.blocked='${b}'`);
 			system(`uci -q commit ${CONF}`);
-			const name = system(`uci -q get ${CONF}.${id}.name`) ? '' : '';
-			add_event((b === '1') ? 'block' : 'allow', id, (b === '1') ? 'blocked manually' : 'unblocked');
+			const fd = popen(`uci -q get ${CONF}.${id}.name 2>/dev/null`);
+			const name = fd ? trim((fd.read('all') || '')) : id;
+			if (fd) fd.close();
+			add_event((b === '1') ? 'block' : 'allow', name || id, (b === '1') ? 'blocked manually' : 'unblocked');
 			restart_apply();
 			return { result: true };
 		}
 	},
 
-	/* Temporary block: minutes (default 60). key = section id. */
+	/* Temporary block: minutes (any positive number). */
 	client_temp_block: {
 		args: { id: 'id', minutes: 'minutes' },
 		call: function(req) {
@@ -171,12 +171,16 @@ const methods = {
 			if (!id)
 				return { result: false, error: 'missing id' };
 			const mins = int(req.args?.minutes) || 60;
+			if (mins < 1 || mins > 60 * 24 * 30)
+				return { result: false, error: 'bad minutes' };
 			const fd1 = popen(`uci -q get ${CONF}.${id}.ip 2>/dev/null`);
-			const ip_v = fd1 ? trim(fd1.read('all') || '') : '';
+			const ip_v = fd1 ? trim((fd1.read('all') || '')) : '';
 			if (fd1) fd1.close();
 			const fd2 = popen(`uci -q get ${CONF}.${id}.mac 2>/dev/null`);
-			const mac_v = fd2 ? trim(fd2.read('all') || '') : '';
+			const mac_v = fd2 ? trim((fd2.read('all') || '')) : '';
 			if (fd2) fd2.close();
+			if (!length(ip_v) && !length(mac_v))
+				return { result: false, error: 'client has no ip/mac' };
 			const temps = read_temps();
 			const until = now_epoch() + mins * 60;
 			if (length(ip_v))
@@ -184,7 +188,10 @@ const methods = {
 			if (length(mac_v))
 				temps[mac_v] = until;
 			write_temps(temps);
-			add_event('temp', id, `temporary block for ${mins} min`);
+			const fd3 = popen(`uci -q get ${CONF}.${id}.name 2>/dev/null`);
+			const name = fd3 ? trim((fd3.read('all') || '')) : id;
+			if (fd3) fd3.close();
+			add_event('temp', name || id, `temporary block for ${mins} min`);
 			restart_apply();
 			return { result: true, until: until };
 		}
@@ -197,10 +204,10 @@ const methods = {
 			if (!id)
 				return { result: false, error: 'missing id' };
 			const fd1 = popen(`uci -q get ${CONF}.${id}.ip 2>/dev/null`);
-			const ip_v = fd1 ? trim(fd1.read('all') || '') : '';
+			const ip_v = fd1 ? trim((fd1.read('all') || '')) : '';
 			if (fd1) fd1.close();
 			const fd2 = popen(`uci -q get ${CONF}.${id}.mac 2>/dev/null`);
-			const mac_v = fd2 ? trim(fd2.read('all') || '') : '';
+			const mac_v = fd2 ? trim((fd2.read('all') || '')) : '';
 			if (fd2) fd2.close();
 			const temps = read_temps();
 			if (length(ip_v))
@@ -227,11 +234,9 @@ const methods = {
 				return { result: false, error: 'invalid ip' };
 			if (mac && !match(mac, /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/))
 				return { result: false, error: 'invalid mac' };
-			/* uci add prints the new section id to stdout; use popen.
-			 * Only ONE add here (an earlier `system(uci add)` would create
-			 * a stray empty section). */
+			/* uci add prints the new section id to stdout; use popen. */
 			const fd = popen(`uci -q add ${CONF} client`);
-			const newid = trim((fd && fd.read('line')) || '');
+			const newid = fd ? trim((fd.read('line') || '')) : '';
 			if (fd)
 				fd.close();
 			if (!length(newid))
@@ -247,7 +252,8 @@ const methods = {
 			add_event('system', name || ip || mac, 'client added');
 			restart_apply();
 			return { result: true, id: newid };
-		}	},
+		}
+	},
 
 	client_delete: {
 		args: { id: 'id' },
@@ -255,7 +261,7 @@ const methods = {
 			const id = req.args?.id;
 			if (!id)
 				return { result: false, error: 'missing id' };
-			system(`uci -q delete ${CONF}.${shellquote(id)}`);
+			system(`uci -q delete ${CONF}.${id}`);
 			system(`uci -q commit ${CONF}`);
 			add_event('system', id, 'client deleted');
 			restart_apply();
@@ -263,48 +269,46 @@ const methods = {
 		}
 	},
 
-	/* WiFi status from wireless config. */
+	/* Wi-Fi status: radios, ifaces, temp off markers. */
 	wifi_status: {
 		call: function(req) {
-			const out = [];
 			const fd = popen(`ubus call network.wireless status 2>/dev/null`);
 			if (!fd)
-				return { radios: [] };
+				return { radios: [], temps: {} };
 			const raw = fd.read('all');
 			fd.close();
 			let st = null;
 			try { st = json(raw); } catch (e) { st = null; }
 			if (!st)
-				return { radios: [] };
-			const radios = [];
+				return { radios: [], temps: {} };
+
+			const out = [];
+			const radio_names = [];
 			for (let radio in st)
-				push(radios, radio);
-			for (let ri = 0; ri < length(radios); ri++) {
-				const radio = radios[ri];
+				push(radio_names, radio);
+			for (let ri = 0; ri < length(radio_names); ri++) {
+				const radio = radio_names[ri];
 				const r = st[radio];
 				const ifaces = [];
 				const confs = r.interfaces || [];
 				for (let i = 0; i < length(confs); i++) {
 					const cf = confs[i];
-					const iid = cf.section || '';
-					let up = false, ssid = '';
 					const cfg = cf.config || {};
-					up = (r.up === true) && !(cfg.disabled === true);
-					ssid = cfg.ssid || '';
+					const ifdis = (cfg.disabled === true);
 					push(ifaces, {
-						id: iid,
-						ssid: ssid,
-						up: up,
-						disabled: (cfg.disabled === true)
+						id: cf.section || '',
+						ssid: cfg.ssid || '',
+						up: (r.up === true) && !ifdis,
+						disabled: ifdis
 					});
 				}
 				push(out, { radio: radio, up: r.up === true, ifaces: ifaces });
 			}
-			return { radios: out };
+			return { radios: out, temps: read_wifi_temps() };
 		}
 	},
 
-	/* Toggle a wireless iface on/off (managed override). */
+	/* Toggle a wireless iface on/off (persistent, user's choice). */
 	wifi_set: {
 		args: { iface: 'iface', disabled: 'disabled' },
 		call: function(req) {
@@ -317,10 +321,41 @@ const methods = {
 				add_event('wifi', iface, 'turned off');
 			} else {
 				system(`uci -q delete wireless.${iface}.disabled`);
+				system(`rm -f '${RUN_DIR}/wifi.off.${iface}'`);
 				add_event('wifi', iface, 'turned on');
 			}
 			system(`uci -q commit wireless`);
 			system(`wifi reload 2>/dev/null`);
+			return { result: true };
+		}
+	},
+
+	/* Temporarily turn a Wi-Fi iface off; auto re-enables after minutes. */
+	wifi_temp_off: {
+		args: { iface: 'iface', minutes: 'minutes' },
+		call: function(req) {
+			const iface = req.args?.iface;
+			if (!iface || !match(iface, /^[A-Za-z0-9_]+$/))
+				return { result: false, error: 'bad iface' };
+			const mins = int(req.args?.minutes) || 60;
+			if (mins < 1 || mins > 60 * 24 * 30)
+				return { result: false, error: 'bad minutes' };
+			wifi_temp_set(iface, now_epoch() + mins * 60);
+			add_event('wifi', iface, `temporarily off for ${mins} min`);
+			restart_apply();
+			return { result: true };
+		}
+	},
+
+	wifi_temp_on: {
+		args: { iface: 'iface' },
+		call: function(req) {
+			const iface = req.args?.iface;
+			if (!iface || !match(iface, /^[A-Za-z0-9_]+$/))
+				return { result: false, error: 'bad iface' };
+			wifi_temp_clear(iface);
+			add_event('wifi', iface, 'temporary off removed');
+			restart_apply();
 			return { result: true };
 		}
 	},
@@ -352,6 +387,78 @@ const methods = {
 			const raw = fd.read('all');
 			fd.close();
 			return { content: raw || '' };
+		}
+	},
+
+	/* ── Self-update (GitHub releases) ────────────────────────────── */
+
+	update_check: {
+		call: function(req) {
+			const cur = current_version();
+			const fd = popen(`wget -qO- --timeout=10 "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null`);
+			if (!fd)
+				return { result: false, error: 'fetch failed' };
+			const raw = fd.read('all');
+			fd.close();
+			let rel = null;
+			try { rel = json(raw); } catch (e) { rel = null; }
+			if (!rel || !rel.tag_name)
+				return { result: false, error: 'no release data' };
+			const latest = replace(rel.tag_name, /^v/, '');
+			return {
+				result: true,
+				current: cur,
+				latest: rel.tag_name,
+				update_available: vercmp(latest, cur) > 0
+			};
+		}
+	},
+
+	update_perform: {
+		call: function(req) {
+			const ext = pkg_ext();
+			const fd = popen(`wget -qO- --timeout=10 "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null`);
+			if (!fd)
+				return { result: false, error: 'fetch failed' };
+			const raw = fd.read('all');
+			fd.close();
+			let rel = null;
+			try { rel = json(raw); } catch (e) { rel = null; }
+			if (!rel || !rel.assets)
+				return { result: false, error: 'no release data' };
+
+			let url = null;
+			for (let i = 0; i < length(rel.assets); i++) {
+				const a = rel.assets[i];
+				if (match(a.name, `^luci-app-homecontrol_[^/]*_all\\.${ext}\$`)) {
+					url = a.browser_download_url;
+					break;
+				}
+			}
+			if (!url)
+				return { result: false, error: 'no package asset in release' };
+
+			const dl = `${UPDATE_TMP}.${ext}`;
+			system(`wget -qO ${shellquote(dl)} --timeout=60 ${shellquote(url)} 2>/dev/null`);
+			if (!access(dl))
+				return { result: false, error: 'download failed' };
+
+			const cmd = (ext === 'apk')
+				? `apk add --allow-untrusted ${shellquote(dl)}`
+				: `opkg install --force-reinstall ${shellquote(dl)}`;
+			add_event('update', '', `downloading and installing ${ext} update`);
+			system(`( sleep 1; ${shellquote(cmd)} >/tmp/homecontrol-update.log 2>&1 ) &`);
+			return { result: true, started: true };
+		}
+	},
+
+	update_status: {
+		call: function(req) {
+			const logc = access('/tmp/homecontrol-update.log') ? readfile('/tmp/homecontrol-update.log') : '';
+			return {
+				version: current_version(),
+				log: logc
+			};
 		}
 	}
 

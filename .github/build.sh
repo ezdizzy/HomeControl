@@ -48,6 +48,10 @@ fi
 cp -fpR "$PKG_DIR/htdocs"/* "$TEMP_PKG_DIR/www/"
 cp -fpR "$PKG_DIR/root"/* "$TEMP_PKG_DIR/"
 
+# Stamp the package version for the in-app updater (self-update feature).
+mkdir -p "$TEMP_PKG_DIR/usr/share/homecontrol/"
+printf '%s\n' "$PKG_VERSION" > "$TEMP_PKG_DIR/usr/share/homecontrol/version"
+
 # Keep the user config across upgrades.
 if [ "$PKG_MGR" == "apk" ]; then
 	echo "/etc/config/homecontrol" > "$TEMP_PKG_DIR/lib/apk/packages/$PKG_NAME.conffiles"

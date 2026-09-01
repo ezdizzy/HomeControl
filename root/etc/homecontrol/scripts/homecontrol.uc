@@ -1,17 +1,24 @@
 // SPDX-License-Identifier: GPL-2.0-only
 //
-// HomeControl shared library: config access helpers, state paths, logging.
+// HomeControl shared library: config access, state computation, logging.
+// Used by apply.uc (enforcer), engine.uc (watcher) and the rpcd backend.
 //
-// NOTE: this ucode build (2026.01.16) requires a trailing `;` after every
-// top-level `export function ... { ... }` in module files, otherwise the
-// module fails to compile when imported ("Unexpected token; expecting ';'").
-// Also: `export` is only valid in module context (import), so `ucode -c`
-// always reports "Exports may only appear at top level of a module" —
-// that error is EXPECTED for library files and is not a defect.
+// NOTE: this ucode build (2026.01.16):
+//  - top-level `export function ... { ... }` in modules REQUIRES a trailing
+//    `;` after the closing brace, or the module fails to import;
+//  - `json()` only PARSES (string -> object); to stringify use sprintf('%J');
+//  - no Array.prototype.push/map; use global push()/join()/filter builtins;
+//  - `for (const k in obj)` is invalid — use `for (let k in obj)`;
+//  - localtime() returns a FULL year in .year (2026, not 126) and 1-based
+//    .mon; do NOT add 1900/+1;
+//  - `export` is only valid in module context: `ucode -c lib.uc` always
+//    prints "Exports may only appear at top level of a module" — that is
+//    EXPECTED for library files, verify via a test import instead;
+//  - ucode uci cursors snapshot config at creation; keep a short TTL cache.
 
 'use strict';
 
-import { access, readfile, writefile, open } from 'fs';
+import { access, readfile, writefile, open, popen } from 'fs';
 import { cursor } from 'uci';
 
 export const CONF = 'homecontrol';
@@ -20,26 +27,19 @@ export const STATE_DIR = '/etc/homecontrol';
 export const LOG_PATH = RUN_DIR + '/homecontrol.log';
 export const EVENTS_PATH = RUN_DIR + '/events.json';
 
-export const NFT_TABLE = 'inet homecontrol';
-export const NFT_PRE = '/var/run/homecontrol/fw4_pre.nft';
-
 let _cursor = null;
 let _cursor_ts = 0;
 
-/* UCI cursor caching: the engine daemon re-reads config every loop, so keep
- * the cursor alive for at most 2 seconds. Long-lived processes (rpcd) would
- * otherwise serve stale config forever, since ucode uci cursors snapshot at
- * creation. */
 export function get_cursor() {
 	const now = time();
-	if (!_cursor || (now - _cursor_ts) > 2)
+	if (!_cursor || (now - _cursor_ts) > 2) {
 		_cursor = cursor();
+		_cursor_ts = now;
+	}
 	return _cursor;
 };
 
 export function systime_stamp() {
-	/* NOTE: this ucode build already returns full year in .year (2026, not 126),
-	 * and .mon is 1-based (9 = September). Do NOT add 1900/+1 here. */
 	const d = localtime(time());
 	return sprintf('%04d-%02d-%02d %02d:%02d:%02d',
 		d.year, d.mon, d.mday, d.hour, d.min, d.sec);
@@ -129,8 +129,8 @@ export function add_event(type, who, detail) {
 	const maxn = int(main_opt('log_max', '500')) || 500;
 	push(events, {
 		ts: time(),
-		type: type,        /* block, allow, wifi, schedule, temp, system */
-		who: who || '',    /* client name/ip/mac or iface name */
+		type: type,        /* block, allow, wifi, schedule, temp, system, update */
+		who: who || '',
 		detail: detail || ''
 	});
 	while (length(events) > maxn)
@@ -156,10 +156,30 @@ export function wd_index(name) {
 	return (name in WD) ? WD[name] : -1;
 };
 
+function any_day(days, wday) {
+	for (let i = 0; i < length(days); i++)
+		if (wd_index(days[i]) === wday)
+			return true;
+	return false;
+};
+
+function date_to_ts(ymd, hhmm) {
+	const m = match(ymd || '', /^(\d{4})-(\d{2})-(\d{2})$/);
+	if (!m)
+		return null;
+	const t = parse_hhmm(hhmm);
+	if (t == null)
+		return null;
+	return time(sprintf('%04d-%02d-%02d %02d:%02d:00',
+		int(m[1]), int(m[2]), int(m[3]), int(t / 60), t % 60));
+};
+
 /* Is the schedule section s active right now?
- * Handles daily (time window each day), weekly (time window on chosen days),
- * range (full-day blocking between dates), timer (one-shot: from date/time
- * until date/time). */
+ *  daily  - time window each day (may cross midnight)
+ *  weekly - time window on selected weekdays
+ *  range  - whole-day window between two dates
+ *  timer  - one-shot absolute window (date_start+time_start .. date_stop+time_stop)
+ */
 export function schedule_active(s, now) {
 	const d = localtime(now);
 	const wday = (d.wday + 6) % 7; /* localtime: Sun=0 -> Mon=0 index */
@@ -180,7 +200,6 @@ export function schedule_active(s, now) {
 	}
 
 	if (stype === 'timer') {
-		/* one-shot absolute window; date_start+time_start .. date_stop+time_stop */
 		const t1 = date_to_ts(s.date_start, s.time_start || '00:00');
 		const t2 = date_to_ts(s.date_stop, s.time_stop || '23:59');
 		if (t1 == null || t2 == null)
@@ -204,25 +223,6 @@ export function schedule_active(s, now) {
 	return now_min >= t1 || now_min < t2;
 };
 
-function any_day(days, wday) {
-	for (let i = 0; i < length(days); i++)
-		if (wd_index(days[i]) === wday)
-			return true;
-	return false;
-};
-
-function date_to_ts(ymd, hhmm) {
-	const m = match(ymd || '', /^(\d{4})-(\d{2})-(\d{2})$/);
-	if (!m)
-		return null;
-	const t = parse_hhmm(hhmm);
-	if (t == null)
-		return null;
-	/* time() with an argument: seconds for the given local date+time */
-	return time(sprintf('%04d-%02d-%02d %02d:%02d:00',
-		int(m[1]), int(m[2]), int(m[3]), int(t / 60), t % 60));
-};
-
 /* Enabled schedules only. */
 export function get_schedules() {
 	const res = [];
@@ -236,7 +236,7 @@ export function get_schedules() {
 	return res;
 };
 
-/* Temporary blocks: { key: until_epoch } where key is ip or mac. */
+/* Temporary client blocks: { key: until_epoch } (key = ip or mac). */
 export function read_temps() {
 	const p = RUN_DIR + '/temps.json';
 	if (!access(p))
@@ -259,4 +259,183 @@ export function read_temps() {
 export function write_temps(t) {
 	mkdir_p(RUN_DIR);
 	atomic_write(RUN_DIR + '/temps.json', sprintf('%J', t));
+};
+
+/* Temporary Wi-Fi off markers: { iface: until_epoch }. */
+export function read_wifi_temps() {
+	mkdir_p(RUN_DIR);
+	const out = {};
+	const fd = popen(`ls ${RUN_DIR}/wifi.temp.* 2>/dev/null`);
+	if (!fd)
+		return out;
+	const raw = fd.read('all') || '';
+	fd.close();
+	const files = split(trim(raw), /\n/);
+	const now = time();
+	for (let i = 0; i < length(files); i++) {
+		const f = trim(files[i]);
+		const m = match(f, /wifi\.temp\.(.+)$/);
+		if (!m)
+			continue;
+		const until = int(trim(readfile(f) || '')) || 0;
+		if (until > now)
+			out[m[1]] = until;
+	}
+	return out;
+};
+
+export function wifi_temp_set(iface, until) {
+	mkdir_p(RUN_DIR);
+	writefile(`${RUN_DIR}/wifi.temp.${iface}`, '' + until + '\n');
+};
+
+export function wifi_temp_clear(iface) {
+	system(`rm -f '${RUN_DIR}/wifi.temp.${iface}'`);
+};
+
+/* ── Effective state computation (shared by apply/engine/rpcd) ──────── */
+
+/* Per-client effective state:
+ * { id, name, ip, mac, blocked, reason: manual|temp|schedule, until } */
+export function client_states(now) {
+	const temps = read_temps();
+	const paused = main_opt('paused', '0') === '1';
+	const clients = get_sections('client');
+	const schs = get_schedules();
+	const out = [];
+
+	for (let i = 0; i < length(clients); i++) {
+		const c = clients[i];
+		let blocked = false, reason = '', until = 0;
+
+		if (!paused) {
+			if (c.blocked === '1') {
+				blocked = true;
+				reason = 'manual';
+			}
+			const t_until = (c.ip && temps[c.ip]) ? temps[c.ip] : (c.mac && temps[c.mac]) ? temps[c.mac] : 0;
+			if (!blocked && t_until) {
+				blocked = true;
+				reason = 'temp';
+				until = t_until;
+			}
+			if (!blocked) {
+				for (let j = 0; j < length(schs); j++) {
+					const s = schs[j];
+					const cids = s.client_ids || [];
+					if (!length(cids))
+						continue;
+					let mine = false;
+					for (let k = 0; k < length(cids); k++)
+						if (cids[k] === c.id || cids[k] === c.name)
+							mine = true;
+					if (!mine)
+						continue;
+					if (schedule_active(s, now) && (s.action || 'deny') === 'deny') {
+						blocked = true;
+						reason = 'schedule';
+						break;
+					}
+				}
+			}
+		}
+
+		push(out, {
+			id: c.id,
+			name: c.name || c.ip || c.mac || '?',
+			ip: c.ip || '',
+			mac: c.mac || '',
+			blocked: blocked,
+			reason: reason,
+			until: until
+		});
+	}
+	return out;
+};
+
+/* Rules to enforce right now (enabled, not paused-for, inside time window). */
+export function active_rules(now) {
+	const out = [];
+	const rules = get_sections('rule');
+	for (let i = 0; i < length(rules); i++) {
+		const r = rules[i];
+		if (r.enabled !== '1')
+			continue;
+		/* temporary pause (e.g. "allow for 1h") */
+		const du = int(r.disabled_until) || 0;
+		if (du > now)
+			continue;
+		/* embedded daily/weekly window */
+		if (r.time_start || r.time_stop || (r.days && length(r.days))) {
+			const probe = { type: 'daily', time_start: r.time_start, time_stop: r.time_stop, days: r.days };
+			if (!schedule_active(probe, now))
+				continue;
+		}
+		/* embedded date range */
+		if (r.date_start || r.date_stop) {
+			const probe = { type: 'range', date_start: r.date_start, date_stop: r.date_stop };
+			if (!schedule_active(probe, now))
+				continue;
+		}
+		push(out, r);
+	}
+	return out;
+};
+
+/* Wi-Fi ifaces that must be OFF right now:
+ *  - deny-schedule active, OR allow-schedule outside its window;
+ *  - temp off markers (auto-expiring). */
+export function wifi_off_map(now) {
+	const off = {};
+	const schs = get_schedules();
+	const wifis = get_sections('wifi');
+
+	function resolve(wid) {
+		for (let n = 0; n < length(wifis); n++)
+			if (wifis[n].id === wid || wifis[n].name === wid)
+				return wifis[n].network || wid;
+		return wid;
+	}
+
+	for (let j = 0; j < length(schs); j++) {
+		const s = schs[j];
+		const wids = s.wifi_ids || [];
+		if (!length(wids))
+			continue;
+		const act = schedule_active(s, now);
+		const deny = (s.action || 'deny') === 'deny';
+		/* deny+active => off; allow+outside-window => off ("Wi-Fi only during...") */
+		if (act === deny) {
+			for (let k = 0; k < length(wids); k++) {
+				const iface = resolve(wids[k]);
+				if (iface)
+					off[iface] = true;
+			}
+		}
+	}
+
+	const wtemps = read_wifi_temps();
+	for (let k in wtemps)
+		off[k] = true;
+
+	return off;
+};
+
+/* Semantic version compare: -1 a<b, 0 equal, 1 a>b. */
+export function vercmp(a, b) {
+	const sa = split(a || '', '.'), sb = split(b || '', '.');
+	const pa = [], pb = [];
+	for (let i = 0; i < length(sa); i++)
+		push(pa, int(sa[i]) || 0);
+	for (let i = 0; i < length(sb); i++)
+		push(pb, int(sb[i]) || 0);
+	const n = max(length(pa), length(pb));
+	for (let i = 0; i < n; i++) {
+		const x = pa[i] || 0, y = pb[i] || 0;
+		if (x < y)
+			return -1;
+		if (x > y)
+			return 1;
+	}
+	return 0;
 };
