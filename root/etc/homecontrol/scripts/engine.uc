@@ -24,12 +24,13 @@ function state_signature(now) {
 	const states = client_states(now);
 	for (let i = 0; i < length(states); i++) {
 		const c = states[i];
-		push(parts, `${c.id}=${c.blocked ? c.reason : '0'}@${c.until || 0}`);
+		/* ip/mac included: DHCP change must re-render nft/redirect rules */
+		push(parts, `${c.id}=${c.blocked ? c.reason : '0'}@${c.until || 0}@${c.ip || ''}@${c.mac || ''}`);
 	}
 
 	const rules = active_rules(now);
 	for (let i = 0; i < length(rules); i++)
-		push(parts, `r:${rules[i].id}=1`);
+		push(parts, `r:${rules[i].id}:${join(',', rules[i].client_ids || [])}:${join(',', rules[i].target || [])}=1`);
 
 	const temps = read_temps();
 	for (let k in temps)

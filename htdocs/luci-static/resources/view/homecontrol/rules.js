@@ -2,8 +2,9 @@
  * SPDX-License-Identifier: GPL-2.0-only
  *
  * HomeControl - Site rules: domain (DNS) and IP (firewall) block rules with
- * optional time windows ("block only 20:00-07:00", date ranges) and a
- * temporary pause ("allow for 1h") with automatic re-enable.
+ * optional scope (whole network or selected clients), time windows
+ * ("block only 20:00-07:00", date ranges) and a temporary pause
+ * ("allow for 1h") with automatic re-enable.
  */
 
 'use strict';
@@ -113,6 +114,10 @@ return view.extend({
 	render: function(data) {
 		const tableWrap = E('div', {});
 		const pausedMap = (data[1] && data[1].rules_paused) || {};
+		const statusClients = (data[1] && data[1].clients) || [];
+		const clientNames = {};
+		for (let i = 0; i < statusClients.length; i++)
+			clientNames[statusClients[i].id] = statusClients[i].name || statusClients[i].id;
 		const view = this;
 
 		function renderRules() {
@@ -132,6 +137,7 @@ return view.extend({
 					E('th', {}, [ _('Name') ]),
 					E('th', {}, [ _('Type') ]),
 					E('th', {}, [ _('Targets') ]),
+					E('th', {}, [ _('Applies to') ]),
 					E('th', {}, [ _('Active') ]),
 					E('th', {}, [ _('Enabled') ]),
 					E('th', {}, [ _('Actions') ])
@@ -143,6 +149,7 @@ return view.extend({
 				const sid = r['.name'];
 				const isDomain = (r.type || 'domain') === 'domain';
 				const targets = (r.target && r.target.length) ? r.target : [];
+				const ruleClients = (r.client_ids && r.client_ids.length) ? r.client_ids : [];
 				const pausedUntil = (pausedMap[sid] ? pausedMap[sid] : 0) || (int(r.disabled_until) || 0);
 				const paused = (pausedUntil * 1000) > Date.now();
 
@@ -154,6 +161,12 @@ return view.extend({
 				]));
 				tr.appendChild(E('td', { 'style': 'max-width:380px; overflow-wrap:anywhere' },
 					[ targets.join(', ') || '—' ]));
+
+				if (ruleClients.length)
+					tr.appendChild(E('td', { 'style': 'max-width:200px; overflow-wrap:anywhere' },
+						[ ruleClients.map(function(c) { return clientNames[c] || c; }).join(', ') ]));
+				else
+					tr.appendChild(E('td', {}, [ E('em', { 'style': 'color:#999' }, [ _('Whole network') ]) ]));
 
 				/* active column: time window + pause state */
 				const activeCell = E('td', {});
@@ -225,9 +238,24 @@ return view.extend({
 			'placeholder': _('One domain or IP per line, e.g.\ntiktok.com\ninstagram.com\n1.2.3.4')
 		});
 		const selType = E('select', { 'class': 'cbi-input-select' }, [
-			E('option', { 'value': 'domain' }, [ _('Domain (site blocking via DNS, all clients)') ]),
-			E('option', { 'value': 'ip' }, [ _('IP / subnet (via firewall, all clients)') ])
+			E('option', { 'value': 'domain' }, [ _('Domain (site blocking via DNS)') ]),
+			E('option', { 'value': 'ip' }, [ _('IP / subnet (via firewall)') ])
 		]);
+
+		/* per-client scope: empty selection = whole network */
+		const clientChecks = E('div', { 'style': 'display:flex; gap:10px; flex-wrap:wrap' });
+		for (let i = 0; i < statusClients.length; i++) {
+			const c = statusClients[i];
+			const lbl = E('label', { 'style': 'display:flex; align-items:center; gap:4px' },
+				[ (c.name || c.ip || c.id) ]);
+			const cb = E('input', { 'type': 'checkbox', 'value': c.id });
+			lbl.insertBefore(cb, lbl.firstChild);
+			clientChecks.appendChild(lbl);
+		}
+		if (!statusClients.length)
+			clientChecks.appendChild(E('em', { 'style': 'color:#999' },
+				[ _('No clients defined — the rule will apply to the whole network.') ]));
+
 		const inTimeStart = E('input', { 'type': 'time', 'class': 'cbi-input-text' });
 		const inTimeStop = E('input', { 'type': 'time', 'class': 'cbi-input-text' });
 		const inDateStart = E('input', { 'type': 'date', 'class': 'cbi-input-text' });
@@ -266,6 +294,11 @@ return view.extend({
 				for (let i = 0; i < lines.length; i++)
 					uci.add_list('homecontrol', sid, 'target', lines[i]);
 
+				/* per-client scope (empty = whole network) */
+				clientChecks.querySelectorAll('input:checked').forEach(function(cb) {
+					uci.add_list('homecontrol', sid, 'client_ids', cb.value);
+				});
+
 				/* optional time window */
 				if (inTimeStart.value)
 					uci.set('homecontrol', sid, 'time_start', inTimeStart.value);
@@ -287,6 +320,9 @@ return view.extend({
 					inTargets.value = '';
 					inTimeStart.value = ''; inTimeStop.value = '';
 					inDateStart.value = ''; inDateStop.value = '';
+					clientChecks.querySelectorAll('input:checked').forEach(function(cb) {
+						cb.checked = false;
+					});
 					ui.addNotification(null, _('Rule added and applied'));
 					return L.resolveDefault(callApply(), {});
 				});
@@ -298,7 +334,7 @@ return view.extend({
 		return E([
 			E('style', { 'type': 'text/css' }, [ CSS ]),
 			E('h2', {}, [ _('HomeControl — Site Rules') ]),
-			E('p', {}, [ _('Block access to sites and resources for the whole network. Optionally limit each rule to a time window — outside the window the sites are reachable again automatically.') ]),
+			E('p', {}, [ _('Block access to sites and resources for the whole network or for selected clients only (e.g. one child, while another can still open the site). Optionally limit each rule to a time window — outside the window the sites are reachable again automatically.') ]),
 
 			E('div', { 'class': 'cbi-section' }, [
 				E('h3', {}, [ _('Existing rules') ]),
@@ -317,6 +353,12 @@ return view.extend({
 							E('label', {}, [ _('Targets') ]),
 							inTargets,
 							E('span', { 'class': 'hint' }, [ _('One entry per line. Domains are blocked via DNS; IPs/subnets via the firewall.') ])
+						])
+					]),
+					E('div', { 'class': 'hc-row' }, [
+						E('div', { 'class': 'hc-field wide' }, [
+							E('label', {}, [ _('Apply to clients (optional — leave empty for the whole network)') ]),
+							clientChecks
 						])
 					]),
 					E('div', { 'class': 'hc-row' }, [

@@ -102,6 +102,17 @@ function status_overview() {
 			paused_rules[all_rules[i].id] = du;
 	}
 
+	/* active per-client DNS filter instances (client id -> port) */
+	const dnsf = {};
+	const insts_path = RUN_DIR + '/dnsf/instances.json';
+	if (access(insts_path)) {
+		try {
+			const insts = json(readfile(insts_path) || '[]');
+			for (let i = 0; i < length(insts); i++)
+				dnsf[insts[i].id] = insts[i].port;
+		} catch (e) { /* ignore corrupt state */ }
+	}
+
 	return {
 		enabled: main_opt('enabled', '0') === '1',
 		paused: main_opt('paused', '0') === '1',
@@ -112,7 +123,8 @@ function status_overview() {
 		temp: temp,
 		schedules: length(get_schedules()),
 		clients: states,
-		rules_paused: paused_rules
+		rules_paused: paused_rules,
+		dns_filters: dnsf
 	};
 }
 

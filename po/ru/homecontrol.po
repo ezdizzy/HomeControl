@@ -624,8 +624,24 @@ msgid "Resume immediately"
 msgstr "Возобновить сейчас"
 
 #: htdocs/luci-static/resources/view/homecontrol/rules.js
-msgid "Block access to sites and resources for the whole network. Optionally limit each rule to a time window — outside the window the sites are reachable again automatically."
-msgstr "Блокируйте доступ к сайтам и ресурсам для всей сети. Опционально ограничьте правило окном времени — вне окна сайты снова доступны автоматически."
+msgid "Block access to sites and resources for the whole network or for selected clients only (e.g. one child, while another can still open the site). Optionally limit each rule to a time window — outside the window the sites are reachable again automatically."
+msgstr "Блокируйте доступ к сайтам и ресурсам для всей сети или только для выбранных клиентов (например, одному ребёнку — пока второй может открывать сайт). Опционально ограничьте правило окном времени — вне окна сайты снова доступны автоматически."
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Applies to"
+msgstr "Применяется к"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Whole network"
+msgstr "Вся сеть"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Apply to clients (optional — leave empty for the whole network)"
+msgstr "Применять к клиентам (необязательно — пусто = вся сеть)"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "No clients defined — the rule will apply to the whole network."
+msgstr "Клиенты не заданы — правило будет действовать на всю сеть."
 
 #: htdocs/luci-static/resources/view/homecontrol/wifi.js
 msgid "Turn off %s for..."

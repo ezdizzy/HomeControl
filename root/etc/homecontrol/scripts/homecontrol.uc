@@ -353,9 +353,12 @@ export function client_states(now) {
 	return out;
 };
 
-/* Rules to enforce right now (enabled, not paused-for, inside time window). */
+/* Rules to enforce right now (enabled, not paused-for, inside time window).
+ * Empty when global pause ("allow everything") is on. */
 export function active_rules(now) {
 	const out = [];
+	if (main_opt('paused', '0') === '1')
+		return out;
 	const rules = get_sections('rule');
 	for (let i = 0; i < length(rules); i++) {
 		const r = rules[i];
@@ -378,6 +381,56 @@ export function active_rules(now) {
 				continue;
 		}
 		push(out, r);
+	}
+	return out;
+};
+
+function in_list(arr, v) {
+	for (let i = 0; i < length(arr); i++)
+		if (arr[i] === v)
+			return true;
+	return false;
+};
+
+/* Per-client rule targets active right now — only rules that list clients
+ * (client_ids). Rules with an EMPTY client_ids list are GLOBAL and handled
+ * separately (main dnsmasq blocked.conf / blocked_rule_v4 set).
+ * Returns { client_section_id: { domains: [...], ips: [...] } } */
+export function client_rule_targets(now) {
+	const out = {};
+	const rules = active_rules(now);
+	const clients = get_sections('client');
+
+	for (let i = 0; i < length(rules); i++) {
+		const r = rules[i];
+		const cids = r.client_ids || [];
+		if (!length(cids))
+			continue;
+		const rtype = r.type || 'domain';
+		const targets = r.target || [];
+		for (let k = 0; k < length(cids); k++) {
+			/* resolve the rule's client ref (section id or name) to a real client */
+			let cid = '';
+			for (let c = 0; c < length(clients); c++)
+				if (clients[c].id === cids[k] || clients[c].name === cids[k])
+					cid = clients[c].id;
+			if (!cid)
+				continue;
+			if (!out[cid])
+				out[cid] = { domains: [], ips: [] };
+			for (let t = 0; t < length(targets); t++) {
+				const v = targets[t];
+				if (!length(v))
+					continue;
+				if (rtype === 'ip') {
+					if (!in_list(out[cid].ips, v))
+						push(out[cid].ips, v);
+				} else if (length(v) > 2) {
+					if (!in_list(out[cid].domains, v))
+						push(out[cid].domains, v);
+				}
+			}
+		}
 	}
 	return out;
 };

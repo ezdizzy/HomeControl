@@ -66,6 +66,14 @@ start_service() {
 stop_service() {
 	# Remove our nft table so no stale blocks remain after service removal.
 	nft delete table inet homecontrol 2>/dev/null
+	# Stop per-client dnsmasq filter instances.
+	for f in "$RUN_DIR"/dnsf/*.pid; do
+		[ -e "$f" ] || break
+		pid="$(cat "$f" 2>/dev/null)"
+		[ -n "$pid" ] && kill "$pid" 2>/dev/null
+		rm -f "$f"
+	done
+	rm -rf "$RUN_DIR/dnsf"
 	# Restore any WiFi ifaces we disabled.
 	for f in "$RUN_DIR"/wifi.off.*; do
 		[ -e "$f" ] || break

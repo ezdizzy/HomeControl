@@ -13,7 +13,7 @@ LUCI_DEPENDS:= \
 	+ucode-mod-ubus
 
 PKG_NAME:=luci-app-homecontrol
-PKG_VERSION:=0.2.0
+PKG_VERSION:=0.3.0
 PKG_RELEASE:=1
 PKG_MAINTAINER:=HomeControl contributors
 PKG_LICENSE:=GPL-2.0-only
