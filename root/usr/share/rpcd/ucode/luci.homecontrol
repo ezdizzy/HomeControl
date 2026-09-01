@@ -445,38 +445,59 @@ const methods = {
 			if (!rel || !rel.assets)
 				return { result: false, error: 'no release data' };
 
+			/* main package asset */
 			let url = null;
+			let i18n_url = null;
 			/* NOTE: ucode match() with a STRING pattern is broken on this
 			 * build (returns null even for present substrings) — use regex
 			 * literals or explicit substring checks. Here ext is dynamic,
 			 * so do plain prefix/suffix matching. */
 			const aprefix = 'luci-app-homecontrol_';
 			const asuffix = '_all.' + ext;
+			const iprefix = 'luci-i18n-homecontrol-ru_';
 			for (let i = 0; i < length(rel.assets); i++) {
 				const a = rel.assets[i];
 				if (a.name && length(a.name) > length(aprefix) + length(asuffix) &&
 					substr(a.name, 0, length(aprefix)) === aprefix &&
 					substr(a.name, length(a.name) - length(asuffix)) === asuffix) {
 					url = a.browser_download_url;
-					break;
+				}
+				/* i18n ru asset: same version, best effort (optional) */
+				if (a.name && length(a.name) > length(iprefix) + length(asuffix) &&
+					substr(a.name, 0, length(iprefix)) === iprefix &&
+					substr(a.name, length(a.name) - length(asuffix)) === asuffix) {
+					i18n_url = a.browser_download_url;
 				}
 			}
 			if (!url)
 				return { result: false, error: 'no package asset in release' };
 
 			const dl = `${UPDATE_TMP}.${ext}`;
+			const dl_i18n = `${UPDATE_TMP}-ru.${ext}`;
 			system(`wget -qO ${shellquote(dl)} --timeout=60 ${shellquote(url)} 2>/dev/null`);
 			if (!access(dl))
 				return { result: false, error: 'download failed' };
+			if (i18n_url)
+				system(`wget -qO ${shellquote(dl_i18n)} --timeout=60 ${shellquote(i18n_url)} 2>/dev/null`);
+			const have_i18n = !!i18n_url && access(dl_i18n);
 
 			/* NOTE: apk-tools 3 treats a quoted path ('/tmp/x.apk') as a
 			 * package name -> "not found". Do NOT shellquote the path for
 			 * apk; it is a fixed /tmp path we built ourselves, no spaces. */
 			const cmd = (ext === 'apk')
-				? `apk add --allow-untrusted ${dl}`
-				: `opkg install --force-reinstall ${shellquote(dl)}`;
-			add_event('update', '', `downloading and installing ${ext} update`);
-			system(`( sleep 1; ${shellquote(cmd)} >/tmp/homecontrol-update.log 2>&1 ) &`);
+				? (have_i18n
+					? `apk add --allow-untrusted ${dl} ${dl_i18n}`
+					: `apk add --allow-untrusted ${dl}`)
+				: (have_i18n
+					? `opkg install --force-reinstall ${shellquote(dl)} ${shellquote(dl_i18n)}`
+					: `opkg install --force-reinstall ${shellquote(dl)}`);
+			/* NOTE: do NOT shellquote(cmd) here — it would quote the WHOLE
+			 * command line as one word ('apk add ...') and sh would report
+			 * "not found". cmd is built above from trusted constants. */
+			add_event('update', '', (have_i18n
+				? `downloading and installing ${ext} update (+i18n ru)`
+				: `downloading and installing ${ext} update`));
+			system(`( sleep 1; ${cmd} >/tmp/homecontrol-update.log 2>&1 ) &`);
 			return { result: true, started: true };
 		}
 	},
