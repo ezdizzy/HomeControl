@@ -643,6 +643,86 @@ msgstr "Применять к клиентам (необязательно — �
 msgid "No clients defined — the rule will apply to the whole network."
 msgstr "Клиенты не заданы — правило будет действовать на всю сеть."
 
+#: htdocs/luci-static/resources/view/homecontrol/menu.d/luci-app-homecontrol.json
+msgid "HomeControl"
+msgstr "HomeControl"
+
+#: htdocs/luci-static/resources/view/homecontrol/menu.d/luci-app-homecontrol.json
+msgid "Dashboard"
+msgstr "Панель"
+
+#: htdocs/luci-static/resources/view/homecontrol/menu.d/luci-app-homecontrol.json
+msgid "Clients"
+msgstr "Клиенты"
+
+#: htdocs/luci-static/resources/view/homecontrol/menu.d/luci-app-homecontrol.json
+msgid "Wi-Fi"
+msgstr "Wi-Fi"
+
+#: htdocs/luci-static/resources/view/homecontrol/menu.d/luci-app-homecontrol.json
+msgid "Site Rules"
+msgstr "Правила сайтов"
+
+#: htdocs/luci-static/resources/view/homecontrol/menu.d/luci-app-homecontrol.json
+msgid "Schedules"
+msgstr "Расписания"
+
+#: htdocs/luci-static/resources/view/homecontrol/menu.d/luci-app-homecontrol.json
+msgid "Journal"
+msgstr "Журнал"
+
+#: htdocs/luci-static/resources/view/homecontrol/menu.d/luci-app-homecontrol.json
+msgid "Settings"
+msgstr "Настройки"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Plan when clients or Wi-Fi are blocked or allowed. Windows may cross midnight (e.g. 21:00 → 07:00). \"Only during window\" reverses the logic: outside the window everything is blocked / Wi-Fi is off."
+msgstr "Планируйте, когда клиенты или Wi-Fi блокируются или разрешаются. Окна могут переходить через полночь (напр. 21:00 → 07:00). Режим «Только в окне» меняет логику: вне окна всё заблокировано / Wi-Fi выключен."
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "No schedules yet. Example: block kids' tablets on school nights after 21:00, turn guest Wi-Fi off at night, allow internet only during homework hours."
+msgstr "Расписаний пока нет. Пример: блокировать детские планшеты после 21:00 в учебные дни, выключать гостевой Wi-Fi ночью, разрешать интернет только на время уроков."
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Only during window (Wi-Fi: off outside)"
+msgstr "Только в окне (Wi-Fi вне окна выключен)"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "e.g. School night lockout"
+msgstr "напр. Учебные вечера"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "Tip: IP is enough for instant blocking; MAC additionally covers DHCP changes. Client list refreshes automatically."
+msgstr "Совет: для мгновенной блокировки достаточно IP; MAC дополнительно покрывает смену адреса по DHCP. Список клиентов обновляется автоматически."
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "General"
+msgstr "Общие"
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "Version"
+msgstr "Версия"
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "Install"
+msgstr "Установить"
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "Blocked domains: answered with NXDOMAIN by dnsmasq, so they fail fast without timeouts. Domain rules apply to the whole network."
+msgstr "Заблокированные домены: dnsmasq отвечает NXDOMAIN, поэтому неудача происходит мгновенно, без тайм-аутов. Доменные правила действуют на всю сеть."
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "Apply"
+msgstr "Применить"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Days of week (optional)"
+msgstr "Дни недели (необязательно)"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "One domain or IP per line, e.g.\ntiktok.com\ninstagram.com\n1.2.3.4"
+msgstr "По одной записи на строку, напр.\ntiktok.com\ninstagram.com\n1.2.3.4"
+
 #: htdocs/luci-static/resources/view/homecontrol/wifi.js
 msgid "Turn off %s for..."
 msgstr "Выключить %s на…"
