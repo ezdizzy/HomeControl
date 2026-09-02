@@ -55,6 +55,17 @@ const CSS = `
 `;
 
 const DAYS = [ 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun' ];
+/* Display-only labels; UCI values stay 'Mon'..'Sun' (matched by the backend). */
+const DAY_LABELS = {};
+for (let d = 0; d < DAYS.length; d++)
+	DAY_LABELS[DAYS[d]] = _(DAYS[d]);
+
+function day_labels(days) {
+	const lbls = [];
+	for (let i = 0; i < days.length; i++)
+		lbls.push(DAY_LABELS[days[i]] || days[i]);
+	return lbls;
+}
 
 const TYPE_LABELS = {
 	daily: _('Daily'),
@@ -66,7 +77,7 @@ const TYPE_LABELS = {
 function fmt_days(days) {
 	if (!days || !days.length)
 		return _('Every day');
-	return days.join(', ');
+	return day_labels(days).join(', ');
 }
 
 function fmt_window(s) {
@@ -200,7 +211,7 @@ return view.extend({
 
 		const dayChecks = E('div', { 'class': 'hc-checks' });
 		for (let d = 0; d < DAYS.length; d++) {
-			const lbl = E('label', {}, [ DAYS[d] ]);
+			const lbl = E('label', {}, [ _(DAYS[d]) ]);
 			const cb = E('input', { 'type': 'checkbox', 'value': DAYS[d] });
 			lbl.insertBefore(cb, lbl.firstChild);
 			dayChecks.appendChild(lbl);

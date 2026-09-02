@@ -123,7 +123,7 @@ return view.extend({
 
 		installBtn.addEventListener('click', ui.createHandlerFn(view, function() {
 			ui.showModal(_('Install update'), [
-				E('p', {}, [ _('The new version will be downloaded and installed now. This may take a minute; the page will need a refresh afterwards.') ]),
+				E('p', {}, [ _('The new version will be downloaded and installed now. The page will reload automatically when the update finishes.') ]),
 				E('div', { 'class': 'right' }, [
 					E('button', { 'class': 'btn', 'click': ui.hideModal }, [ _('Cancel') ]),
 					E('button', {
@@ -131,11 +131,26 @@ return view.extend({
 						'click': ui.createHandlerFn(view, function() {
 							ui.hideModal();
 							installBtn.disabled = true;
+							checkBtn.disabled = true;
+							upBadge.style.background = 'rgba(240,173,78,.2)';
+							upBadge.style.color = '#c77c11';
+							upBadge.textContent = _('Installing update — please wait…');
 							return L.resolveDefault(callUpdatePerform(), {}).then(function(r) {
-								if (r && r.started)
-									ui.addNotification(null, _('Update started — wait about a minute, then reload this page.'));
-								else
-									ui.addNotification('error', _('Update failed') + (r && r.error ? (': ' + r.error) : ''));
+								if (r && r.result !== false) {
+									upBadge.style.background = 'rgba(92,184,92,.15)';
+									upBadge.style.color = '#5cb85c';
+									upBadge.textContent = _('Installed — reloading…');
+									/* Let the package postinst restart rpcd/homecontrol
+									 * (2s delay) before the fresh page hits the new RPC. */
+									setTimeout(function() { window.location.reload(); }, 5000);
+								} else {
+									checkBtn.disabled = false;
+									upBadge.style.background = 'rgba(217,83,79,.15)';
+									upBadge.style.color = '#d9534f';
+									upBadge.textContent = _('Update failed');
+									ui.addNotification('error', _('Update failed') +
+										(r && r.error ? (': ' + r.error) : ''));
+								}
 							});
 						})
 					}, [ _('Install') ])

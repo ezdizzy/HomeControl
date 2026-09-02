@@ -49,6 +49,17 @@ const CSS = `
 `;
 
 const DAYS = [ 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun' ];
+/* Display-only labels; UCI values stay 'Mon'..'Sun' (matched by the backend). */
+const DAY_LABELS = {};
+for (let d = 0; d < DAYS.length; d++)
+	DAY_LABELS[DAYS[d]] = _(DAYS[d]);
+
+function day_labels(days) {
+	const lbls = [];
+	for (let i = 0; i < days.length; i++)
+		lbls.push(DAY_LABELS[days[i]] || days[i]);
+	return lbls;
+}
 
 function fmt_remaining(until) {
 	const m = Math.max(0, Math.round((until * 1000 - Date.now()) / 60000));
@@ -66,7 +77,7 @@ function windowSummary(r) {
 	if (r.time_start || r.time_stop)
 		parts.push((r.time_start || '00:00') + '–' + (r.time_stop || '24:00'));
 	if (r.days && r.days.length)
-		parts.push(r.days.join(','));
+		parts.push(day_labels(r.days).join(','));
 	if (r.date_start || r.date_stop)
 		parts.push((r.date_start || '…') + '…' + (r.date_stop || '…'));
 	return parts.length ? parts.join(' · ') : _('Always');
@@ -265,7 +276,7 @@ return view.extend({
 
 		const dayChecks = E('div', { 'style': 'display:flex; gap:10px; flex-wrap:wrap' });
 		for (let d = 0; d < DAYS.length; d++) {
-			const lbl = E('label', { 'style': 'display:flex; align-items:center; gap:4px' }, [ DAYS[d] ]);
+			const lbl = E('label', { 'style': 'display:flex; align-items:center; gap:4px' }, [ _(DAYS[d]) ]);
 			const cb = E('input', { 'type': 'checkbox', 'value': DAYS[d] });
 			lbl.insertBefore(cb, lbl.firstChild);
 			dayChecks.appendChild(lbl);

@@ -510,24 +510,32 @@ const methods = {
 				system(`wget -qO ${shellquote(dl_i18n)} --timeout=60 ${shellquote(i18n_url)} 2>/dev/null`);
 			const have_i18n = !!i18n_url && access(dl_i18n);
 
-			/* NOTE: apk-tools 3 treats a quoted path ('/tmp/x.apk') as a
-			 * package name -> "not found". Do NOT shellquote the path for
-			 * apk; it is a fixed /tmp path we built ourselves, no spaces. */
-			const cmd = (ext === 'apk')
-				? (have_i18n
-					? `apk add --allow-untrusted ${dl} ${dl_i18n}`
-					: `apk add --allow-untrusted ${dl}`)
-				: (have_i18n
-					? `opkg install --force-reinstall ${shellquote(dl)} ${shellquote(dl_i18n)}`
-					: `opkg install --force-reinstall ${shellquote(dl)}`);
-			/* NOTE: do NOT shellquote(cmd) here — it would quote the WHOLE
-			 * command line as one word ('apk add ...') and sh would report
-			 * "not found". cmd is built above from trusted constants. */
 			add_event('update', '', (have_i18n
 				? `downloading and installing ${ext} update (+i18n ru)`
 				: `downloading and installing ${ext} update`));
-			system(`( sleep 1; ${cmd} >/tmp/homecontrol-update.log 2>&1 ) &`);
-			return { result: true, started: true };
+			/* Synchronous install (like re-homeproxy app_install_pkg): the UI
+			 * reloads the page itself when this returns. apk/opkg need a timeout
+			 * so a hung transaction cannot block rpcd forever. */
+			let rc;
+			if (ext === 'apk')
+				rc = system((have_i18n
+					? `apk add --allow-untrusted ${dl} ${dl_i18n}`
+					: `apk add --allow-untrusted ${dl}`) + ' >/tmp/homecontrol-update.log 2>&1', 120000);
+			else
+				rc = system((have_i18n
+					? `opkg install --force-reinstall ${shellquote(dl)} ${shellquote(dl_i18n)}`
+					: `opkg install --force-reinstall ${shellquote(dl)}`) + ' >/tmp/homecontrol-update.log 2>&1', 120000);
+			system(`rm -f ${shellquote(dl)} ${shellquote(dl_i18n)}`);
+			if (rc !== 0) {
+				const logc = access('/tmp/homecontrol-update.log') ? readfile('/tmp/homecontrol-update.log') : '';
+				return {
+					result: false,
+					error: 'package installation failed (see journal/service log)',
+					log: logc
+				};
+			}
+			add_event('update', '', 'update installed successfully');
+			return { result: true, installed: true, version: current_version() };
 		}
 	},
 

@@ -353,7 +353,7 @@ msgid "Details"
 msgstr "Детали"
 
 #: htdocs/luci-static/resources/view/homecontrol/journal.js
-msgid "Service log (tail)"
+msgid "Service log"
 msgstr "Журнал службы"
 
 #: htdocs/luci-static/resources/view/homecontrol/journal.js
@@ -445,12 +445,16 @@ msgid "Install update"
 msgstr "Установить обновление"
 
 #: htdocs/luci-static/resources/view/homecontrol/settings.js
-msgid "The new version will be downloaded and installed now. This may take a minute; the page will need a refresh afterwards."
-msgstr "Сейчас будет скачана и установлена новая версия. Это займёт около минуты; после установки обновите страницу."
+msgid "The new version will be downloaded and installed now. The page will reload automatically when the update finishes."
+msgstr "Сейчас будет скачана и установлена новая версия. После завершения обновления страница перезагрузится автоматически."
 
 #: htdocs/luci-static/resources/view/homecontrol/settings.js
-msgid "Update started — wait about a minute, then reload this page."
-msgstr "Обновление запущено — подождите около минуты и перезагрузите страницу."
+msgid "Installing update — please wait…"
+msgstr "Устанавливаю обновление — подождите…"
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "Installed — reloading…"
+msgstr "Установлено — перезагружаю страницу…"
 
 #: htdocs/luci-static/resources/view/homecontrol/settings.js
 msgid "Update failed"
@@ -609,6 +613,22 @@ msgid "Settings"
 msgstr "Настройки"
 
 #: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Date from"
+msgstr "Дата с"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Date to"
+msgstr "Дата до"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "No schedules yet. Example: block kids' tablets on school nights after 21:00, turn guest Wi-Fi off at night, allow internet only during homework hours."
+msgstr "Расписаний пока нет. Пример: блокировать планшеты детей в учебные вечера после 21:00, выключать гостевой Wi-Fi на ночь, разрешать интернет только в часы уроков."
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "— Select a device from the network —"
+msgstr "— Выберите устройство из сети —"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
 msgid "e.g. School night lockout"
 msgstr "напр. Учебные вечера"
 
@@ -631,6 +651,34 @@ msgstr "Применить"
 #: htdocs/luci-static/resources/view/homecontrol/rules.js
 msgid "Days of week (optional)"
 msgstr "Дни недели (необязательно)"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Mon"
+msgstr "Пн"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Tue"
+msgstr "Вт"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Wed"
+msgstr "Ср"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Thu"
+msgstr "Чт"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Fri"
+msgstr "Пт"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Sat"
+msgstr "Сб"
+
+#: htdocs/luci-static/resources/view/homecontrol/rules.js
+msgid "Sun"
+msgstr "Вс"
 
 #: htdocs/luci-static/resources/view/homecontrol/rules.js
 msgid "One domain or IP per line, e.g.\ntiktok.com\ninstagram.com\n1.2.3.4"
