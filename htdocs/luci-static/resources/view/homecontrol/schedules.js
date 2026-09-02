@@ -56,6 +56,13 @@ const CSS = `
 
 const DAYS = [ 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun' ];
 
+const TYPE_LABELS = {
+	daily: _('Daily'),
+	weekly: _('Weekly'),
+	range: _('Date range'),
+	timer: _('One-shot timer')
+};
+
 function fmt_days(days) {
 	if (!days || !days.length)
 		return _('Every day');
@@ -90,13 +97,29 @@ return view.extend({
 			for (let i = 0; i < (radios[r].ifaces || []).length; i++)
 				wifiIfaces.push(radios[r].ifaces[i]);
 
+		const clients = ((data[1] || {}).clients) || [];
+		const clientName = {};
+		for (let i = 0; i < clients.length; i++)
+			clientName[clients[i].id] = clients[i].name || clients[i].id;
+
+		const wifiName = {};
+		for (let i = 0; i < wifiIfaces.length; i++)
+			wifiName[wifiIfaces[i].id] = wifiIfaces[i].ssid || wifiIfaces[i].id;
+
 		function targets_str(s) {
+			const cn = [], wn = [];
+			const cids = s.client_ids || [];
+			for (let i = 0; i < cids.length; i++)
+				cn.push(clientName[cids[i]] || cids[i]);
+			const wids = s.wifi_ids || [];
+			for (let i = 0; i < wids.length; i++)
+				wn.push(wifiName[wids[i]] || wids[i]);
 			const parts = [];
-			if (s.client_ids && s.client_ids.length)
-				parts.push(_('%d client(s)').format(s.client_ids.length));
-			if (s.wifi_ids && s.wifi_ids.length)
-				parts.push(_('%d Wi-Fi').format(s.wifi_ids.length));
-			return parts.length ? parts.join(', ') : _('(nothing bound)');
+			if (cn.length)
+				parts.push(_('Clients') + ': ' + cn.join(', '));
+			if (wn.length)
+				parts.push('Wi-Fi: ' + wn.join(', '));
+			return parts.length ? parts.join(' · ') : _('(nothing bound)');
 		}
 
 		function renderSchedules() {
@@ -114,7 +137,7 @@ return view.extend({
 			const tbl = E('table', { 'class': 'hc-tbl' }, [
 				E('thead', {}, [ E('tr', {}, [
 					E('th', {}, [ _('Name') ]),
-					E('th', {}, [ _('Kind') ]),
+					E('th', {}, [ _('Schedule type') ]),
 					E('th', {}, [ _('Window') ]),
 					E('th', {}, [ _('Bound to') ]),
 					E('th', {}, [ _('Action') ]),
@@ -129,12 +152,12 @@ return view.extend({
 				const deny = (s.action || 'deny') === 'deny';
 				const tr = E('tr', {});
 				tr.appendChild(E('td', {}, [ E('strong', {}, [ s.name || sid ]) ]));
-				tr.appendChild(E('td', {}, [ (s.type || 'daily') ]));
+				tr.appendChild(E('td', {}, [ TYPE_LABELS[s.type || 'daily'] || (s.type || 'daily') ]));
 				tr.appendChild(E('td', {}, [ fmt_window(s) ]));
 				tr.appendChild(E('td', {}, [ targets_str(s) ]));
 				tr.appendChild(E('td', {}, [
 					E('span', { 'class': 'hc-badge ' + (deny ? 'r' : 'g') },
-						[ deny ? _('Block during window') : _('Only during window') ])
+						[ deny ? _('Block during the window (allowed outside)') : _('Allow only during the window (blocked outside)') ])
 				]));
 
 				const cb = E('input', { 'type': 'checkbox' });
@@ -184,7 +207,6 @@ return view.extend({
 		}
 
 		const clientChecks = E('div', { 'class': 'hc-checks' });
-		const clients = ((data[1] || {}).clients) || [];
 		for (let i = 0; i < clients.length; i++) {
 			const c = clients[i];
 			const lbl = E('label', {}, [ c.name ]);
@@ -203,9 +225,43 @@ return view.extend({
 		}
 
 		const selAction = E('select', { 'class': 'cbi-input-select' }, [
-			E('option', { 'value': 'deny' }, [ _('Block during window') ]),
-			E('option', { 'value': 'allow' }, [ _('Only during window (Wi-Fi: off outside)') ])
+			E('option', { 'value': 'deny' }, [ _('Block during the window (allowed outside)') ]),
+			E('option', { 'value': 'allow' }, [ _('Allow only during the window (blocked outside)') ])
 		]);
+
+		const actionHint = E('p', { 'style': 'color:#888; font-size:.85em; margin:4px 0 0' }, []);
+
+		const HINT_DENY = _('While the window is active: bound clients have no internet and bound Wi-Fi networks are turned off. Outside the window everything works as usual.');
+		const HINT_ALLOW = _('Access is granted ONLY while the window is active: bound clients have internet and bound Wi-Fi networks are on. Outside the window clients are blocked and Wi-Fi is turned off.');
+
+		const rowTime = E('div', { 'class': 'hc-row' }, [
+			E('div', { 'class': 'hc-field' }, [ E('label', {}, [ _('Time from') ]), inTimeStart ]),
+			E('div', { 'class': 'hc-field' }, [ E('label', {}, [ _('Time to') ]), inTimeStop ]),
+			E('div', { 'class': 'hc-field wide' }, [
+				E('span', { 'class': 'hint', 'style': 'color:#999; font-size:.8em' },
+					[ _('The window may cross midnight (e.g. 21:00 → 07:00).') ])
+			])
+		]);
+
+		const rowDays = E('div', { 'class': 'hc-row' }, [
+			E('div', { 'class': 'hc-field wide' }, [ E('label', {}, [ _('Days of week (weekly)') ]), dayChecks ])
+		]);
+
+		const rowDates = E('div', { 'class': 'hc-row' }, [
+			E('div', { 'class': 'hc-field' }, [ E('label', {}, [ _('Date from') ]), inDateStart ]),
+			E('div', { 'class': 'hc-field' }, [ E('label', {}, [ _('Date to') ]), inDateStop ])
+		]);
+
+		function updateTypeVis() {
+			const t = selType.value;
+			rowTime.style.display = (t === 'range') ? 'none' : '';
+			rowDays.style.display = (t === 'weekly') ? '' : 'none';
+			rowDates.style.display = (t === 'range' || t === 'timer') ? '' : 'none';
+			actionHint.textContent = (selAction.value === 'deny') ? HINT_DENY : HINT_ALLOW;
+		}
+
+		selType.addEventListener('change', updateTypeVis);
+		selAction.addEventListener('change', updateTypeVis);
 
 		const addBtn = E('button', {
 			'class': 'btn cbi-button-positive',
@@ -216,6 +272,19 @@ return view.extend({
 					return;
 				}
 				const type = selType.value;
+
+				if ((type === 'daily' || type === 'weekly') && (!inTimeStart.value || !inTimeStop.value)) {
+					ui.addNotification('error', _('For daily and weekly schedules, set the time window (from and to)'));
+					return;
+				}
+				if (type === 'range' && (!inDateStart.value || !inDateStop.value)) {
+					ui.addNotification('error', _('For a date range, set both dates'));
+					return;
+				}
+				if (type === 'timer' && (!inDateStart.value || !inDateStop.value)) {
+					ui.addNotification('error', _('For a one-shot timer, set both dates'));
+					return;
+				}
 
 				const bound = [];
 				clientChecks.querySelectorAll('input:checked').forEach(function(cb) { bound.push(cb.value); });
@@ -232,18 +301,20 @@ return view.extend({
 				uci.set('homecontrol', sid, 'enabled', '1');
 				uci.set('homecontrol', sid, 'action', selAction.value);
 
-				const days = [];
-				dayChecks.querySelectorAll('input:checked').forEach(function(cb) { days.push(cb.value); });
-				for (let i = 0; i < days.length; i++)
-					uci.add_list('homecontrol', sid, 'days', days[i]);
+				if (type === 'weekly') {
+					const days = [];
+					dayChecks.querySelectorAll('input:checked').forEach(function(cb) { days.push(cb.value); });
+					for (let i = 0; i < days.length; i++)
+						uci.add_list('homecontrol', sid, 'days', days[i]);
+				}
 
 				if (type === 'daily' || type === 'weekly') {
-					if (inTimeStart.value) uci.set('homecontrol', sid, 'time_start', inTimeStart.value);
-					if (inTimeStop.value) uci.set('homecontrol', sid, 'time_stop', inTimeStop.value);
+					uci.set('homecontrol', sid, 'time_start', inTimeStart.value);
+					uci.set('homecontrol', sid, 'time_stop', inTimeStop.value);
 				}
 				if (type === 'range' || type === 'timer') {
-					if (inDateStart.value) uci.set('homecontrol', sid, 'date_start', inDateStart.value);
-					if (inDateStop.value) uci.set('homecontrol', sid, 'date_stop', inDateStop.value);
+					uci.set('homecontrol', sid, 'date_start', inDateStart.value);
+					uci.set('homecontrol', sid, 'date_stop', inDateStop.value);
 					if (type === 'timer') {
 						if (inTimeStart.value) uci.set('homecontrol', sid, 'time_start', inTimeStart.value);
 						if (inTimeStop.value) uci.set('homecontrol', sid, 'time_stop', inTimeStop.value);
@@ -264,11 +335,12 @@ return view.extend({
 		}, [ _('Create schedule') ]);
 
 		renderSchedules();
+		updateTypeVis();
 
 		return E([
 			E('style', { 'type': 'text/css' }, [ CSS ]),
 			E('h2', {}, [ _('HomeControl — Schedules') ]),
-			E('p', {}, [ _('Plan when clients or Wi-Fi are blocked or allowed. Windows may cross midnight (e.g. 21:00 → 07:00). "Only during window" reverses the logic: outside the window everything is blocked / Wi-Fi is off.') ]),
+			E('p', {}, [ _('A schedule follows the clock: pick a time window (e.g. 21:00 → 07:00), bind clients or Wi-Fi networks, and choose what happens during the window — block it (allowed outside), or allow it (blocked outside). Windows may cross midnight.') ]),
 
 			E('div', { 'class': 'cbi-section' }, [
 				E('h3', {}, [ _('Existing schedules') ]),
@@ -280,19 +352,17 @@ return view.extend({
 				E('div', { 'class': 'hc-form' }, [
 					E('div', { 'class': 'hc-row' }, [
 						E('div', { 'class': 'hc-field wide' }, [ E('label', {}, [ _('Name') ]), inName ]),
-						E('div', { 'class': 'hc-field' }, [ E('label', {}, [ _('Kind') ]), selType ])
+						E('div', { 'class': 'hc-field' }, [ E('label', {}, [ _('Schedule type') ]), selType ])
 					]),
+					rowTime,
+					rowDays,
+					rowDates,
 					E('div', { 'class': 'hc-row' }, [
-						E('div', { 'class': 'hc-field' }, [ E('label', {}, [ _('Time from') ]), inTimeStart ]),
-						E('div', { 'class': 'hc-field' }, [ E('label', {}, [ _('Time to') ]), inTimeStop ])
-					]),
-					E('div', { 'class': 'hc-row' }, [
-						E('div', { 'class': 'hc-field' }, [ E('label', {}, [ _('Date from (range/timer)') ]), inDateStart ]),
-						E('div', { 'class': 'hc-field' }, [ E('label', {}, [ _('Date to (range/timer)') ]), inDateStop ]),
-						E('div', { 'class': 'hc-field wide' }, [ E('label', {}, [ _('Days of week (weekly)') ]), dayChecks ])
-					]),
-					E('div', { 'class': 'hc-row' }, [
-						E('div', { 'class': 'hc-field' }, [ E('label', {}, [ _('Action') ]), selAction ])
+						E('div', { 'class': 'hc-field wide' }, [
+							E('label', {}, [ _('Action') ]),
+							selAction,
+							actionHint
+						])
 					]),
 					E('div', { 'class': 'hc-row' }, [
 						E('div', { 'class': 'hc-field wide' }, [ E('label', {}, [ _('Bind clients') ]), clientChecks ]),

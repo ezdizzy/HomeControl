@@ -150,7 +150,7 @@ return view.extend({
 				const isDomain = (r.type || 'domain') === 'domain';
 				const targets = (r.target && r.target.length) ? r.target : [];
 				const ruleClients = (r.client_ids && r.client_ids.length) ? r.client_ids : [];
-				const pausedUntil = (pausedMap[sid] ? pausedMap[sid] : 0) || (int(r.disabled_until) || 0);
+				const pausedUntil = (pausedMap[sid] ? pausedMap[sid] : 0) || (parseInt(r.disabled_until, 10) || 0);
 				const paused = (pausedUntil * 1000) > Date.now();
 
 				const tr = E('tr', {});
@@ -193,6 +193,7 @@ return view.extend({
 				btns.appendChild(E('button', {
 					'class': 'btn cbi-button',
 					'title': _('Temporarily allow (pause this rule)'),
+					'disabled': paused ? 'disabled' : null,
 					'click': function() {
 						customTimeModal(_('Pause "%s" for...').format(r.name || sid), 1, function(minutes) {
 							uci.set('homecontrol', sid, 'disabled_until', String(Math.floor(Date.now() / 1000) + minutes * 60));
@@ -205,6 +206,7 @@ return view.extend({
 				btns.appendChild(E('button', {
 					'class': 'btn cbi-button',
 					'title': _('Resume immediately'),
+					'disabled': paused ? null : 'disabled',
 					'click': ui.createHandlerFn(view, function() {
 						uci.unset('homecontrol', sid, 'disabled_until');
 						return uci.save().then(function() {

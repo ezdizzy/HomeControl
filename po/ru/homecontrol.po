@@ -21,16 +21,8 @@ msgid "Managed clients"
 msgstr "Управляемые клиенты"
 
 #: htdocs/luci-static/resources/view/homecontrol/dashboard.js
-msgid "Blocked now"
-msgstr "Заблокировано сейчас"
-
-#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
 msgid "Allowed"
 msgstr "Разрешено"
-
-#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
-msgid "Active schedules"
-msgstr "Активных расписаний"
 
 #: htdocs/luci-static/resources/view/homecontrol/dashboard.js
 msgid "Pause all enforcement"
@@ -87,14 +79,6 @@ msgstr "Блокировать"
 #: htdocs/luci-static/resources/view/homecontrol/dashboard.js
 msgid "Allow"
 msgstr "Разрешить"
-
-#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
-msgid "Block 1h"
-msgstr "Блок 1ч"
-
-#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
-msgid "Block for one hour"
-msgstr "Заблокировать на один час"
 
 #: htdocs/luci-static/resources/view/homecontrol/clients.js
 msgid "HomeControl — Clients"
@@ -165,14 +149,6 @@ msgid "offline"
 msgstr "не в сети"
 
 #: htdocs/luci-static/resources/view/homecontrol/clients.js
-msgid "Block for 30 minutes"
-msgstr "Заблокировать на 30 минут"
-
-#: htdocs/luci-static/resources/view/homecontrol/clients.js
-msgid "Block for 2 hours"
-msgstr "Заблокировать на 2 часа"
-
-#: htdocs/luci-static/resources/view/homecontrol/clients.js
 msgid "Delete client"
 msgstr "Удалить клиента"
 
@@ -188,17 +164,9 @@ msgstr "Отмена"
 msgid "Delete"
 msgstr "Удалить"
 
-#: htdocs/luci-static/resources/view/homecontrol/clients.js
-msgid "Tip: leave IP/MAC empty and the client can be matched later. IP is enough for instant blocking."
-msgstr "Совет: можно оставить IP/MAC пустыми и указать позже. Для мгновенной блокировки достаточно IP."
-
 #: htdocs/luci-static/resources/view/homecontrol/wifi.js
 msgid "HomeControl — Wi-Fi"
 msgstr "HomeControl — Wi-Fi"
-
-#: htdocs/luci-static/resources/view/homecontrol/wifi.js
-msgid "Turn wireless interfaces on or off. Schedules can also disable them automatically at night or during study hours."
-msgstr "Включайте и выключайте беспроводные интерфейсы. Расписания могут отключать их автоматически ночью или во время уроков."
 
 #: htdocs/luci-static/resources/view/homecontrol/wifi.js
 msgid "No Wi-Fi radios detected."
@@ -213,14 +181,6 @@ msgid "disabled"
 msgstr "отключено"
 
 #: htdocs/luci-static/resources/view/homecontrol/wifi.js
-msgid "Turn off radio"
-msgstr "Выключить радио"
-
-#: htdocs/luci-static/resources/view/homecontrol/wifi.js
-msgid "Turn on radio"
-msgstr "Включить радио"
-
-#: htdocs/luci-static/resources/view/homecontrol/wifi.js
 msgid "Turn off"
 msgstr "Выключить"
 
@@ -231,10 +191,6 @@ msgstr "Включить"
 #: htdocs/luci-static/resources/view/homecontrol/rules.js
 msgid "HomeControl — Site Rules"
 msgstr "HomeControl — Правила сайтов"
-
-#: htdocs/luci-static/resources/view/homecontrol/rules.js
-msgid "Block access to sites and resources. Rules are applied network-wide via DNS (domains) or the firewall (IPs). Group them into schedules later."
-msgstr "Блокируйте доступ к сайтам и ресурсам. Правила действуют на всю сеть через DNS (домены) или межсетевой экран (IP)."
 
 #: htdocs/luci-static/resources/view/homecontrol/rules.js
 msgid "Existing rules"
@@ -301,16 +257,8 @@ msgid "HomeControl — Schedules"
 msgstr "HomeControl — Расписания"
 
 #: htdocs/luci-static/resources/view/homecontrol/schedules.js
-msgid "Plan when clients, Wi-Fi or rule sets are blocked or allowed. Windows may cross midnight (e.g. 21:00 → 07:00)."
-msgstr "Планируйте, когда клиенты, Wi-Fi или наборы правил блокируются или разрешаются. Окна могут переходить через полночь (напр. 21:00 → 07:00)."
-
-#: htdocs/luci-static/resources/view/homecontrol/schedules.js
 msgid "Existing schedules"
 msgstr "Существующие расписания"
-
-#: htdocs/luci-static/resources/view/homecontrol/schedules.js
-msgid "No schedules yet. Example: block kids' tablets on school nights after 21:00, turn guest Wi-Fi off at night, pause the internet for an hour as a timeout."
-msgstr "Расписаний пока нет. Пример: блокировать детские планшеты после 21:00 в учебные дни, выключать гостевой Wi-Fi ночью, отключать интернет на час как тайм-аут."
 
 #: htdocs/luci-static/resources/view/homecontrol/schedules.js
 msgid "Every day"
@@ -319,17 +267,6 @@ msgstr "Каждый день"
 #: htdocs/luci-static/resources/view/homecontrol/schedules.js
 msgid "(nothing bound)"
 msgstr "(ничего не привязано)"
-
-#: htdocs/luci-static/resources/view/homecontrol/schedules.js
-msgid "%d client"
-msgid_plural "%d clients"
-msgstr[0] "%d клиент"
-msgstr[1] "%d клиента"
-msgstr[2] "%d клиентов"
-
-#: htdocs/luci-static/resources/view/homecontrol/schedules.js
-msgid "Kind"
-msgstr "Вид"
 
 #: htdocs/luci-static/resources/view/homecontrol/schedules.js
 msgid "Window"
@@ -358,14 +295,6 @@ msgstr "Диапазон дат (целые дни, напр. каникулы)"
 #: htdocs/luci-static/resources/view/homecontrol/schedules.js
 msgid "One-shot timer (exact date+time)"
 msgstr "Разовый таймер (точные дата и время)"
-
-#: htdocs/luci-static/resources/view/homecontrol/schedules.js
-msgid "Block during window"
-msgstr "Блокировать в окне"
-
-#: htdocs/luci-static/resources/view/homecontrol/schedules.js
-msgid "Allow only during window"
-msgstr "Разрешать только в окне"
 
 #: htdocs/luci-static/resources/view/homecontrol/schedules.js
 msgid "Bind clients"
@@ -425,7 +354,19 @@ msgstr "Детали"
 
 #: htdocs/luci-static/resources/view/homecontrol/journal.js
 msgid "Service log (tail)"
-msgstr "Журнал службы (хвост)"
+msgstr "Журнал службы"
+
+#: htdocs/luci-static/resources/view/homecontrol/journal.js
+msgid "Clear events"
+msgstr "Очистить события"
+
+#: htdocs/luci-static/resources/view/homecontrol/journal.js
+msgid "All recorded events will be deleted. The service log is not affected."
+msgstr "Все записанные события будут удалены. Журнал службы не затрагивается."
+
+#: htdocs/luci-static/resources/view/homecontrol/journal.js
+msgid "Clear"
+msgstr "Очистить"
 
 #: htdocs/luci-static/resources/view/homecontrol/settings.js
 msgid "HomeControl — Settings"
@@ -571,14 +512,6 @@ msgstr "IP-адрес"
 msgid "MAC address"
 msgstr "MAC-адрес"
 
-#: htdocs/luci-static/resources/view/homecontrol/clients.js
-msgid "Name"
-msgstr "Имя"
-
-#: htdocs/luci-static/resources/view/homecontrol/clients.js
-msgid "Client list refreshes automatically."
-msgstr "Список клиентов обновляется автоматически."
-
 #: htdocs/luci-static/resources/view/homecontrol/rules.js
 msgid "Active from (optional)"
 msgstr "Активно с (опционально)"
@@ -676,24 +609,8 @@ msgid "Settings"
 msgstr "Настройки"
 
 #: htdocs/luci-static/resources/view/homecontrol/schedules.js
-msgid "Plan when clients or Wi-Fi are blocked or allowed. Windows may cross midnight (e.g. 21:00 → 07:00). \"Only during window\" reverses the logic: outside the window everything is blocked / Wi-Fi is off."
-msgstr "Планируйте, когда клиенты или Wi-Fi блокируются или разрешаются. Окна могут переходить через полночь (напр. 21:00 → 07:00). Режим «Только в окне» меняет логику: вне окна всё заблокировано / Wi-Fi выключен."
-
-#: htdocs/luci-static/resources/view/homecontrol/schedules.js
-msgid "No schedules yet. Example: block kids' tablets on school nights after 21:00, turn guest Wi-Fi off at night, allow internet only during homework hours."
-msgstr "Расписаний пока нет. Пример: блокировать детские планшеты после 21:00 в учебные дни, выключать гостевой Wi-Fi ночью, разрешать интернет только на время уроков."
-
-#: htdocs/luci-static/resources/view/homecontrol/schedules.js
-msgid "Only during window (Wi-Fi: off outside)"
-msgstr "Только в окне (Wi-Fi вне окна выключен)"
-
-#: htdocs/luci-static/resources/view/homecontrol/schedules.js
 msgid "e.g. School night lockout"
 msgstr "напр. Учебные вечера"
-
-#: htdocs/luci-static/resources/view/homecontrol/clients.js
-msgid "Tip: IP is enough for instant blocking; MAC additionally covers DHCP changes. Client list refreshes automatically."
-msgstr "Совет: для мгновенной блокировки достаточно IP; MAC дополнительно покрывает смену адреса по DHCP. Список клиентов обновляется автоматически."
 
 #: htdocs/luci-static/resources/view/homecontrol/settings.js
 msgid "General"
@@ -706,10 +623,6 @@ msgstr "Версия"
 #: htdocs/luci-static/resources/view/homecontrol/settings.js
 msgid "Install"
 msgstr "Установить"
-
-#: htdocs/luci-static/resources/view/homecontrol/settings.js
-msgid "Blocked domains: answered with NXDOMAIN by dnsmasq, so they fail fast without timeouts. Domain rules apply to the whole network."
-msgstr "Заблокированные домены: dnsmasq отвечает NXDOMAIN, поэтому неудача происходит мгновенно, без тайм-аутов. Доменные правила действуют на всю сеть."
 
 #: htdocs/luci-static/resources/view/homecontrol/clients.js
 msgid "Apply"
@@ -756,18 +669,6 @@ msgid "Turn off for a custom time"
 msgstr "Выключить на произвольное время"
 
 #: htdocs/luci-static/resources/view/homecontrol/schedules.js
-msgid "%d client(s)"
-msgstr "%d клиент(ов)"
-
-#: htdocs/luci-static/resources/view/homecontrol/schedules.js
-msgid "%d Wi-Fi"
-msgstr "%d Wi-Fi"
-
-#: htdocs/luci-static/resources/view/homecontrol/schedules.js
-msgid "Only during window"
-msgstr "Только в окне"
-
-#: htdocs/luci-static/resources/view/homecontrol/schedules.js
 msgid "Time from"
 msgstr "Время с"
 
@@ -776,13 +677,137 @@ msgid "Time to"
 msgstr "Время до"
 
 #: htdocs/luci-static/resources/view/homecontrol/schedules.js
-msgid "Date from (range/timer)"
-msgstr "Дата с (диапазон/таймер)"
-
-#: htdocs/luci-static/resources/view/homecontrol/schedules.js
-msgid "Date to (range/timer)"
-msgstr "Дата до (диапазон/таймер)"
-
-#: htdocs/luci-static/resources/view/homecontrol/schedules.js
 msgid "Days of week (weekly)"
 msgstr "Дни недели (еженедельно)"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "Pick a device (from DHCP leases and host hints)"
+msgstr "Выберите устройство (из DHCP-аренд и известных хостов)"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "Selecting a device fills IP and MAC automatically. Then give it a name you will recognize (e.g. \"Kid 1\"). A device missing from the list? Fill the fields below manually."
+msgstr "При выборе устройства IP и MAC заполняются автоматически. Затем задайте понятное имя (напр. «Ребёнок 1»). Нет устройства в списке? Заполните поля ниже вручную."
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "— Enter manually —"
+msgstr "— Ввести вручную —"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "Unknown device"
+msgstr "Неизвестное устройство"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "Add an IP or MAC address to this client first"
+msgstr "Сначала добавьте этому клиенту IP- или MAC-адрес"
+
+#: htdocs/luci-static/resources/view/homecontrol/clients.js
+msgid "Blocked by an active schedule — pause enforcement or edit the schedule"
+msgstr "Заблокирован активным расписанием — приостановите ограничения или измените расписание"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Schedule type"
+msgstr "Тип расписания"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Block during the window (allowed outside)"
+msgstr "Блокировать в окне (вне окна — разрешено)"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Allow only during the window (blocked outside)"
+msgstr "Разрешать только в окне (вне окна — заблокировано)"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "While the window is active: bound clients have no internet and bound Wi-Fi networks are turned off. Outside the window everything works as usual."
+msgstr "Пока окно активно: привязанные клиенты без интернета, привязанные Wi-Fi-сети выключены. Вне окна всё работает как обычно."
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Access is granted ONLY while the window is active: bound clients have internet and bound Wi-Fi networks are on. Outside the window clients are blocked and Wi-Fi is turned off."
+msgstr "Доступ есть ТОЛЬКО пока окно активно: привязанные клиенты с интернетом, привязанные Wi-Fi-сети включены. Вне окна клиенты заблокированы, Wi-Fi выключен."
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "The window may cross midnight (e.g. 21:00 → 07:00)."
+msgstr "Окно может переходить через полночь (напр. 21:00 → 07:00)."
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "For daily and weekly schedules, set the time window (from and to)"
+msgstr "Для ежедневного и еженедельного расписания задайте окно времени (с и до)"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "For a date range, set both dates"
+msgstr "Для диапазона дат задайте обе даты"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "For a one-shot timer, set both dates"
+msgstr "Для разового таймера задайте обе даты"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Daily"
+msgstr "Ежедневно"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Weekly"
+msgstr "Еженедельно"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "Date range"
+msgstr "Диапазон дат"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "One-shot timer"
+msgstr "Разовый таймер"
+
+#: htdocs/luci-static/resources/view/homecontrol/schedules.js
+msgid "A schedule follows the clock: pick a time window (e.g. 21:00 → 07:00), bind clients or Wi-Fi networks, and choose what happens during the window — block it (allowed outside), or allow it (blocked outside). Windows may cross midnight."
+msgstr "Расписание работает по часам: выберите окно времени (напр. 21:00 → 07:00), привяжите клиентов или Wi-Fi-сети и укажите, что происходит в окне — блокировка (вне окна разрешено) или разрешение (вне окна заблокировано). Окно может переходить через полночь."
+
+#: htdocs/luci-static/resources/view/homecontrol/wifi.js
+msgid "Wi-Fi on a schedule:"
+msgstr "Wi-Fi по расписанию:"
+
+#: htdocs/luci-static/resources/view/homecontrol/wifi.js
+msgid "Open the Schedules tab and create a schedule bound to the Wi-Fi network(s) below."
+msgstr "Откройте вкладку «Расписания» и создайте расписание, привязав Wi-Fi-сети из списка ниже."
+
+#: htdocs/luci-static/resources/view/homecontrol/wifi.js
+msgid "Action \"Block during the window\" = Wi-Fi is OFF during the window (e.g. off every night 23:00–07:00)."
+msgstr "Действие «Блокировать в окне» = Wi-Fi ВЫКЛЮЧЕН в окне (напр. выключен каждую ночь 23:00–07:00)."
+
+#: htdocs/luci-static/resources/view/homecontrol/wifi.js
+msgid "Action \"Allow only during the window\" = Wi-Fi is ON only during the window (e.g. on only 16:00–18:00)."
+msgstr "Действие «Разрешать только в окне» = Wi-Fi ВКЛЮЧЁН только в окне (напр. включён только 16:00–18:00)."
+
+#: htdocs/luci-static/resources/view/homecontrol/wifi.js
+msgid "Go to Schedules"
+msgstr "Перейти в Расписания"
+
+#: htdocs/luci-static/resources/view/homecontrol/wifi.js
+msgid "Wireless networks"
+msgstr "Беспроводные сети"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "Resume all enforcement"
+msgstr "Возобновить все ограничения"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "No internet now"
+msgstr "Без интернета сейчас"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "Internet allowed"
+msgstr "С интернетом"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "Enabled schedules"
+msgstr "Включено расписаний"
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "No IP/MAC yet — set them in the Clients tab so this client can be blocked."
+msgstr "Нет IP/MAC — задайте их во вкладке «Клиенты», чтобы этого клиента можно было блокировать."
+
+#: htdocs/luci-static/resources/view/homecontrol/dashboard.js
+msgid "Already blocked"
+msgstr "Уже заблокирован"
+
+#: htdocs/luci-static/resources/view/homecontrol/settings.js
+msgid "Blocked domains: answered with NXDOMAIN by dnsmasq, so they fail fast without timeouts. A rule without clients applies to the whole network; a rule bound to specific clients is enforced only on them."
+msgstr "Заблокированные домены: dnsmasq отвечает NXDOMAIN, поэтому неудача происходит мгновенно, без тайм-аутов. Правило без клиентов действует на всю сеть; правило с привязкой к клиентам — только на них."

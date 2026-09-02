@@ -54,6 +54,18 @@ const callApply = rpc.declare({
 	expect: { '': {} }
 });
 
+const callDHCPLeases = rpc.declare({
+	object: 'luci-rpc',
+	method: 'getDHCPLeases',
+	expect: { '': {} }
+});
+
+const callHostHints = rpc.declare({
+	object: 'luci-rpc',
+	method: 'getHostHints',
+	expect: { '': {} }
+});
+
 const CSS = `
 	.hc-form { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
 	.hc-row { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -119,7 +131,9 @@ return view.extend({
 	load: function() {
 		return Promise.all([
 			uci.load('homecontrol'),
-			L.resolveDefault(callStatus(), {})
+			L.resolveDefault(callStatus(), {}),
+			L.resolveDefault(callDHCPLeases(), {}),
+			L.resolveDefault(callHostHints(), {})
 		]);
 	},
 
@@ -131,10 +145,107 @@ return view.extend({
 		const inIp = E('input', { 'class': 'cbi-input-text', 'placeholder': _('IP address (e.g. 192.168.1.100)'), 'id': 'hc-new-ip' });
 		const inMac = E('input', { 'class': 'cbi-input-text', 'placeholder': _('MAC (optional, e.g. AA:BB:CC:DD:EE:FF)'), 'id': 'hc-new-mac' });
 
+		const selPick = E('select', { 'class': 'cbi-input-select', 'id': 'hc-device-pick' }, [
+			E('option', { 'value': '' }, [ _('— Select a device from the network —') ])
+		]);
+
+		/* device list keyed by display key; rebuilt on every poll */
+		const knownDevices = {};
+
+		function applyDevice(d) {
+			if (!d)
+				return;
+			/* MAC always; IP only when the device actually has one */
+			inIp.value = d.ips.length ? d.ips[0] : '';
+			inMac.value = d.mac || '';
+			/* name: fill only while empty — the user names devices
+			 * themselves (e.g. "Kid 1") and free text is allowed */
+			if (!inName.value.trim() && d.name)
+				inName.value = d.name;
+		}
+
+		selPick.addEventListener('change', function() {
+			const v = selPick.value;
+			if (!v)
+				return;
+			const d = knownDevices[v];
+			if (d)
+				applyDevice(d);
+		});
+
+		function updateDeviceList(leases, hints) {
+			const devs = {};
+			function addDev(mac, ip, name) {
+				if (!mac)
+					return;
+				const m = String(mac).trim().toUpperCase();
+				if (!/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/.test(m))
+					return;
+				let d = devs[m];
+				if (!d) {
+					d = devs[m] = { mac: m, name: '', ips: [] };
+				}
+				if (name && !d.name)
+					d.name = String(name).trim();
+				if (ip && d.ips.indexOf(String(ip).trim()) < 0)
+					d.ips.push(String(ip).trim());
+			}
+
+			const ll = (leases && leases.dhcp_leases) || [];
+			for (let i = 0; i < ll.length; i++)
+				addDev(ll[i].macaddr, ll[i].ipaddr, ll[i].hostname);
+
+			for (let k in hints) {
+				const h = hints[k] || {};
+				if (Array.isArray(h.ipaddrs))
+					for (let i = 0; i < h.ipaddrs.length; i++)
+						addDev(k, h.ipaddrs[i], h.name);
+				else if (h.name)
+					addDev(k, null, h.name);
+			}
+
+			/* one-line label: "name (MAC · IP)" */
+			const choices = {};
+			for (let m in devs) {
+				const d = devs[m];
+				const key = d.ips.length ? d.ips[0] : d.mac;
+				knownDevices[key] = d;
+				knownDevices[d.mac] = d;
+				if (d.ips.length)
+					knownDevices[d.ips[0]] = d;
+
+				const title = d.name || _('Unknown device');
+				const sub = d.ips.length
+					? d.mac + ' · ' + d.ips.join(', ')
+					: d.mac;
+				choices[key] = title + ' (' + sub + ')';
+			}
+
+			/* rebuild options only when the device set changed */
+			const sig = JSON.stringify(Object.keys(choices));
+			if (sig === updateDeviceList._sig)
+				return;
+			updateDeviceList._sig = sig;
+
+			const sel = selPick.value;
+			selPick.innerHTML = '';
+			selPick.appendChild(E('option', { 'value': '' }, [ _('— Select a device from the network —') ]));
+			for (let k in choices)
+				selPick.appendChild(E('option', { 'value': k }, [ choices[k] ]));
+			selPick.value = (sel && choices[sel]) ? sel : '';
+		}
+
 		const addBtn = E('button', {
 			'class': 'btn cbi-button-positive',
 			'click': ui.createHandlerFn(this, function() {
-				const name = inName.value, ip = inIp.value, mac = inMac.value;
+				let name = inName.value.trim();
+				const ip = inIp.value.trim(), mac = inMac.value.trim().toUpperCase();
+				/* picked a device but left the name empty: fall back to
+				 * the hostname / address so the row is recognisable */
+				if (!name) {
+					const picked = knownDevices[selPick.value || ''];
+					name = (picked && (picked.name || picked.ips[0])) || ip || mac;
+				}
 				if (!name && !ip && !mac) {
 					ui.addNotification('error', _('Fill at least one field'));
 					return;
@@ -145,6 +256,7 @@ return view.extend({
 						return;
 					}
 					inName.value = ''; inIp.value = ''; inMac.value = '';
+					selPick.value = '';
 					ui.addNotification(null, _('Client added'));
 					return L.resolveDefault(callApply(), {});
 				});
@@ -152,7 +264,14 @@ return view.extend({
 		}, [ _('Add client') ]);
 
 		function refresh() {
-			return L.resolveDefault(callStatus(), {}).then(function(st) {
+			return Promise.all([
+				L.resolveDefault(callStatus(), {}),
+				L.resolveDefault(callDHCPLeases(), {}),
+				L.resolveDefault(callHostHints(), {})
+			]).then(function(res) {
+				updateDeviceList(res[1], res[2]);
+
+				const st = res[0] || {};
 				const sig = JSON.stringify(st.clients || []);
 				if (sig === refresh._sig)
 					return;
@@ -201,32 +320,50 @@ return view.extend({
 
 					const actions = E('td', {});
 					const btns = E('div', { 'class': 'hc-tbl-actions' });
+					const noAddr = !c.ip && !c.mac;
+					const noAddrTitle = _('Add an IP or MAC address to this client first');
 
-					btns.appendChild(E('button', {
+					const blockBtn = E('button', {
 						'class': 'btn cbi-button cbi-button-negative',
+						'title': noAddr ? noAddrTitle : '',
+						'disabled': noAddr ? 'disabled' : null,
 						'click': ui.createHandlerFn(view, function() {
 							return L.resolveDefault(callSetBlocked({ id: c.id, blocked: true }), {})
-								.then(function() { return L.resolveDefault(callApply(), {}); });
+								.then(function(r) {
+									if (r && r.error)
+										ui.addNotification('error', _('Error') + ': ' + r.error);
+									return L.resolveDefault(callApply(), {});
+								});
 						})
-					}, [ _('Block') ]));
+					}, [ _('Block') ]);
+					btns.appendChild(blockBtn);
+
 					btns.appendChild(E('button', {
 						'class': 'btn cbi-button cbi-button-positive',
+						'title': (blocked && c.reason === 'schedule') ? _('Blocked by an active schedule — pause enforcement or edit the schedule') : '',
 						'click': ui.createHandlerFn(view, function() {
 							return L.resolveDefault(callSetBlocked({ id: c.id, blocked: false }), {})
 								.then(function() { return L.resolveDefault(callTempUnblock({ id: c.id }), {}); })
 								.then(function() { return L.resolveDefault(callApply(), {}); });
 						})
 					}, [ _('Allow') ]));
-					btns.appendChild(E('button', {
+
+					const tempBtn = E('button', {
 						'class': 'btn cbi-button',
-						'title': _('Block for a custom time'),
+						'title': noAddr ? noAddrTitle : _('Block for a custom time'),
+						'disabled': noAddr ? 'disabled' : null,
 						'click': function() {
 							customTimeModal(_('Block %s for...').format(c.name), 2, function(minutes) {
 								L.resolveDefault(callTempBlock({ id: c.id, minutes: minutes }), {})
-									.then(function() { return L.resolveDefault(callApply(), {}); });
+									.then(function(r) {
+										if (r && r.error)
+											ui.addNotification('error', _('Error') + ': ' + r.error);
+										return L.resolveDefault(callApply(), {});
+									});
 							});
 						}
-					}, [ '⏱' ]));
+					}, [ '⏱' ]);
+					btns.appendChild(tempBtn);
 					btns.appendChild(E('button', {
 						'class': 'btn cbi-button-remove',
 						'title': _('Delete'),
@@ -268,14 +405,20 @@ return view.extend({
 				E('h3', {}, [ _('Add client') ]),
 				E('div', { 'class': 'hc-form' }, [
 					E('div', { 'class': 'hc-row' }, [
+						E('div', { 'class': 'hc-field wide' }, [
+							E('label', {}, [ _('Pick a device (from DHCP leases and host hints)') ]),
+							selPick,
+							E('span', { 'class': 'hint', 'style': 'color:#999; font-size:.8em' },
+								[ _('Selecting a device fills IP and MAC automatically. Then give it a name you will recognize (e.g. "Kid 1"). A device missing from the list? Fill the fields below manually.') ])
+						])
+					]),
+					E('div', { 'class': 'hc-row' }, [
 						E('div', { 'class': 'hc-field' }, [ E('label', {}, [ _('Name') ]), inName ]),
 						E('div', { 'class': 'hc-field' }, [ E('label', {}, [ _('IP address') ]), inIp ]),
 						E('div', { 'class': 'hc-field' }, [ E('label', {}, [ _('MAC address') ]), inMac ])
 					]),
 					E('div', { 'class': 'hc-row' }, [ E('div', { 'class': 'hc-field' }, [ addBtn ]) ])
-				]),
-				E('p', { 'style': 'color:#888; font-size:.85em' },
-					[ _('Tip: IP is enough for instant blocking; MAC additionally covers DHCP changes. Client list refreshes automatically.') ])
+				])
 			]),
 
 			E('div', { 'class': 'cbi-section' }, [

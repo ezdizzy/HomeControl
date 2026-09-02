@@ -2,7 +2,8 @@
  * SPDX-License-Identifier: GPL-2.0-only
  *
  * HomeControl - Journal: event log (blocks, unblocks, Wi-Fi changes,
- * schedule activity) with live polling and a service log tail.
+ * schedule activity) with live polling, a scrollable list, a clear
+ * button, and the service log tail.
  */
 
 'use strict';
@@ -17,6 +18,12 @@ const callEvents = rpc.declare({
 	expect: { '': {} }
 });
 
+const callEventsClear = rpc.declare({
+	object: 'luci.homecontrol',
+	method: 'events_clear',
+	expect: { '': {} }
+});
+
 const callLogTail = rpc.declare({
 	object: 'luci.homecontrol',
 	method: 'log_tail',
@@ -24,7 +31,7 @@ const callLogTail = rpc.declare({
 });
 
 const CSS = `
-	.hc-tbl { width: 100%; border-collapse: collapse; margin-top: 8px; }
+	.hc-tbl { width: 100%; border-collapse: collapse; }
 	.hc-tbl th { text-align: left; padding: 6px 8px; border-bottom: 2px solid rgba(128,128,128,.35); }
 	.hc-tbl td { padding: 5px 8px; border-bottom: 1px solid rgba(128,128,128,.12); font-size: .93em; }
 	.hc-ev { font-size: .75em; padding: 2px 8px; border-radius: 10px; font-weight: 600; white-space: nowrap; }
@@ -35,6 +42,8 @@ const CSS = `
 	.hc-ev.system, .hc-ev.schedule { background: rgba(128,128,128,.15); color: #888; }
 	.hc-pre { background: rgba(128,128,128,.08); border: 1px solid rgba(128,128,128,.2); border-radius: 8px; padding: 8px; max-height: 300px; overflow: auto; font-size: .85em; }
 	.hc-ts { color: #888; white-space: nowrap; }
+	.hc-scroll { max-height: 420px; overflow-y: auto; border: 1px solid rgba(128,128,128,.2); border-radius: 8px; padding: 0 8px; }
+	.hc-headrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 `;
 
 function fmt_ts(unix) {
@@ -44,7 +53,8 @@ function fmt_ts(unix) {
 
 return view.extend({
 	render: function() {
-		const evWrap = E('div', {});
+		const view = this;
+		const evWrap = E('div', { 'class': 'hc-scroll' }, [ E('em', {}, [ _('No events yet.') ]) ]);
 		const logWrap = E('pre', { 'class': 'hc-pre' }, [ '—' ]);
 
 		function refreshEvents() {
@@ -57,7 +67,7 @@ return view.extend({
 
 				evWrap.innerHTML = '';
 				if (!events.length) {
-					evWrap.appendChild(E('em', {}, [ _('No events yet.') ]));
+					evWrap.appendChild(E('em', { 'style': 'display:block; padding:8px 0' }, [ _('No events yet.') ]));
 					return;
 				}
 
@@ -93,6 +103,28 @@ return view.extend({
 			});
 		}
 
+		const clearBtn = E('button', {
+			'class': 'btn cbi-button-negative',
+			'click': ui.createHandlerFn(view, function() {
+				ui.showModal(_('Clear events'), [
+					E('p', {}, [ _('All recorded events will be deleted. The service log is not affected.') ]),
+					E('div', { 'class': 'right' }, [
+						E('button', { 'class': 'btn', 'click': ui.hideModal }, [ _('Cancel') ]),
+						E('button', {
+							'class': 'btn cbi-button-negative important',
+							'click': ui.createHandlerFn(view, function() {
+								ui.hideModal();
+								return L.resolveDefault(callEventsClear(), {}).then(function() {
+									refreshEvents._sig = null;
+									return refreshEvents();
+								});
+							})
+						}, [ _('Clear') ])
+					])
+				]);
+			})
+		}, [ _('Clear events') ]);
+
 		poll.add(refreshEvents, 6);
 		poll.add(refreshLog, 15);
 		refreshEvents();
@@ -104,12 +136,15 @@ return view.extend({
 			E('p', {}, [ _('What happened and when: blocks, unblocks, Wi-Fi toggles, schedule activity.') ]),
 
 			E('div', { 'class': 'cbi-section' }, [
-				E('h3', {}, [ _('Events') ]),
+				E('div', { 'class': 'hc-headrow' }, [
+					E('h3', { 'style': 'margin:0' }, [ _('Events') ]),
+					clearBtn
+				]),
 				evWrap
 			]),
 
 			E('div', { 'class': 'cbi-section' }, [
-				E('h3', {}, [ _('Service log (tail)') ]),
+				E('h3', {}, [ _('Service log') ]),
 				logWrap
 			])
 		]);

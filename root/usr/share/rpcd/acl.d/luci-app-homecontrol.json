@@ -8,6 +8,7 @@
 			},
 			"ubus": {
 				"service": [ "list" ],
+				"luci-rpc": [ "getDHCPLeases", "getHostHints" ],
 				"luci.homecontrol": [ "*" ]
 			},
 			"uci": [ "homecontrol" ]

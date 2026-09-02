@@ -147,7 +147,6 @@ return view.extend({
 				});
 			})
 		}, [ _('Pause all enforcement') ]);
-
 		const toolbar = E('div', { 'class': 'hc-toolbar' }, [
 			E('span', { 'id': 'hc-master-state' }, []),
 			pauseBtn
@@ -155,9 +154,9 @@ return view.extend({
 
 		const stats = E('div', { 'class': 'hc-stats' }, [
 			E('div', { 'class': 'hc-stat' }, [ statsEn, E('div', { 'class': 'l' }, [_('Managed clients')]) ]),
-			E('div', { 'class': 'hc-stat red' }, [ statsBl, E('div', { 'class': 'l' }, [_('Blocked now')]) ]),
-			E('div', { 'class': 'hc-stat green' }, [ statsAl, E('div', { 'class': 'l' }, [_('Allowed')]) ]),
-			E('div', { 'class': 'hc-stat blue' }, [ statsSc, E('div', { 'class': 'l' }, [_('Active schedules')]) ])
+			E('div', { 'class': 'hc-stat red' }, [ statsBl, E('div', { 'class': 'l' }, [_('No internet now')]) ]),
+			E('div', { 'class': 'hc-stat green' }, [ statsAl, E('div', { 'class': 'l' }, [_('Internet allowed')]) ]),
+			E('div', { 'class': 'hc-stat blue' }, [ statsSc, E('div', { 'class': 'l' }, [_('Enabled schedules')]) ])
 		]);
 
 		function refresh() {
@@ -169,6 +168,7 @@ return view.extend({
 				}
 
 				view.paused = st.paused;
+				pauseBtn.textContent = st.paused ? _('Resume all enforcement') : _('Pause all enforcement');
 				const ms = document.getElementById('hc-master-state');
 				if (ms) {
 					ms.innerHTML = '';
@@ -201,10 +201,16 @@ return view.extend({
 				for (let i = 0; i < st.clients.length; i++) {
 					const c = st.clients[i];
 					const blocked = c.blocked;
+					const noAddr = !c.ip && !c.mac;
 
 					let badgeEl = badge(c.blocked ? 'block' : 'allow', c.reason);
 					if (c.reason === 'temp' && c.until)
 						badgeEl.appendChild(document.createTextNode(' · ' + fmt_remaining(c.until)));
+
+					const metaText = noAddr
+						? E('span', { 'style': 'color:#c77c11' },
+							[ _('No IP/MAC yet — set them in the Clients tab so this client can be blocked.') ])
+						: ([c.ip, c.mac].filter(Boolean).join(' · ') || _('no address known'));
 
 					const card = E('div', { 'class': 'hc-card ' + (blocked ? 'hc-blocked' : 'hc-allowed') + (c.online ? '' : ' hc-offline') }, [
 						E('div', { 'class': 'hc-name' }, [
@@ -212,24 +218,33 @@ return view.extend({
 							E('span', {}, [ c.name ]),
 							badgeEl
 						]),
-						E('div', { 'class': 'hc-meta' }, [
-							[c.ip, c.mac].filter(Boolean).join(' · ') || _('no address known')
-						]),
+						E('div', { 'class': 'hc-meta' }, [ metaText ]),
 						E('div', { 'class': 'hc-actions' }, [
 							E('button', {
 								'class': 'btn cbi-button ' + (blocked ? 'cbi-button-positive' : 'cbi-button-negative'),
+								'disabled': (!blocked && noAddr) ? 'disabled' : null,
+								'title': (!blocked && noAddr) ? _('Add an IP or MAC address to this client first') : '',
 								'click': ui.createHandlerFn(view, function() {
 									return L.resolveDefault(callSetBlocked({ id: c.id, blocked: !blocked }), {})
-										.then(function() { return L.resolveDefault(callApply(), {}); });
+										.then(function(r) {
+											if (r && r.error)
+												ui.addNotification('error', _('Error') + ': ' + r.error);
+											return L.resolveDefault(callApply(), {});
+										});
 								})
 							}, [ blocked ? _('Allow') : _('Block') ]),
 							E('button', {
 								'class': 'btn cbi-button',
-								'title': _('Block for a custom time'),
+								'title': (noAddr || blocked) ? (noAddr ? _('Add an IP or MAC address to this client first') : _('Already blocked')) : _('Block for a custom time'),
+								'disabled': (noAddr || blocked) ? 'disabled' : null,
 								'click': function() {
 									customTimeModal(_('Block %s for...').format(c.name), 2, function(minutes) {
 										L.resolveDefault(callTempBlock({ id: c.id, minutes: minutes }), {})
-											.then(function() { return L.resolveDefault(callApply(), {}); });
+											.then(function(r) {
+												if (r && r.error)
+													ui.addNotification('error', _('Error') + ': ' + r.error);
+												return L.resolveDefault(callApply(), {});
+											});
 									});
 								}
 							}, [ '⏱' ])

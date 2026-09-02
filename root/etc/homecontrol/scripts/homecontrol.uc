@@ -320,6 +320,7 @@ export function client_states(now) {
 				until = t_until;
 			}
 			if (!blocked) {
+				let allow_bound = false, allow_active = false;
 				for (let j = 0; j < length(schs); j++) {
 					const s = schs[j];
 					const cids = s.client_ids || [];
@@ -331,11 +332,23 @@ export function client_states(now) {
 							mine = true;
 					if (!mine)
 						continue;
-					if (schedule_active(s, now) && (s.action || 'deny') === 'deny') {
-						blocked = true;
-						reason = 'schedule';
-						break;
+					const act = schedule_active(s, now);
+					const deny = (s.action || 'deny') === 'deny';
+					if (deny) {
+						if (act) {
+							blocked = true;
+							reason = 'schedule';
+							break;
+						}
+					} else {
+						allow_bound = true;
+						if (act)
+							allow_active = true;
 					}
+				}
+				if (!blocked && allow_bound && !allow_active) {
+					blocked = true;
+					reason = 'schedule';
 				}
 			}
 		}

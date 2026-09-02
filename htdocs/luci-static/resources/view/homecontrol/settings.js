@@ -187,7 +187,7 @@ return view.extend({
 				E('h3', {}, [ _('How enforcement works') ]),
 				E('ul', {}, [
 					E('li', {}, [ _('Blocked clients: their IPv4 addresses and MACs are dropped in the firewall (forward + output chains).') ]),
-					E('li', {}, [ _('Blocked domains: answered with NXDOMAIN by dnsmasq, so they fail fast without timeouts. Domain rules apply to the whole network.') ]),
+					E('li', {}, [ _('Blocked domains: answered with NXDOMAIN by dnsmasq, so they fail fast without timeouts. A rule without clients applies to the whole network; a rule bound to specific clients is enforced only on them.') ]),
 					E('li', {}, [ _('Rule time windows: outside the window the rule is skipped — sites are reachable again automatically.') ]),
 					E('li', {}, [ _('Schedules: checked every minute by the service; windows may cross midnight.') ]),
 					E('li', {}, [ _('Pause switch (Dashboard): disables all temporary and scheduled blocks at once — useful for parents.') ])

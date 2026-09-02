@@ -170,6 +170,17 @@ const methods = {
 			if (!id)
 				return { result: false, error: 'missing id' };
 			const b = (req.args?.blocked === true || req.args?.blocked === '1') ? '1' : '0';
+			if (b === '1') {
+				const secs = get_sections('client');
+				let found = null;
+				for (let i = 0; i < length(secs); i++)
+					if (secs[i].id === id)
+						found = secs[i];
+				if (!found)
+					return { result: false, error: 'unknown client id' };
+				if (!length(found.ip || '') && !length(found.mac || ''))
+					return { result: false, error: 'client has no ip/mac — add an address first' };
+			}
 			system(`uci -q set ${CONF}.${id}.blocked='${b}'`);
 			system(`uci -q commit ${CONF}`);
 			const fd = popen(`uci -q get ${CONF}.${id}.name 2>/dev/null`);
@@ -252,6 +263,14 @@ const methods = {
 				return { result: false, error: 'invalid ip' };
 			if (mac && !match(mac, /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/))
 				return { result: false, error: 'invalid mac' };
+			const existing = get_sections('client');
+			for (let i = 0; i < length(existing); i++) {
+				const e = existing[i];
+				if (ip && e.ip === ip)
+					return { result: false, error: 'a client with this IP already exists' };
+				if (mac && e.mac && lc(e.mac) === lc(mac))
+					return { result: false, error: 'a client with this MAC already exists' };
+			}
 			/* uci add prints the new section id to stdout; use popen. */
 			const fd = popen(`uci -q add ${CONF} client`);
 			const newid = fd ? trim((fd.read('line') || '')) : '';
@@ -392,6 +411,16 @@ const methods = {
 			for (let i = start; i < length(events); i++)
 				push(out, events[i]);
 			return { events: out };
+		}
+	},
+
+	/* Clear the events journal. */
+	events_clear: {
+		call: function(req) {
+			if (access(EVENTS_PATH))
+				system(`rm -f '${EVENTS_PATH}'`);
+			add_event('system', '', 'events journal cleared');
+			return { result: true };
 		}
 	},
 

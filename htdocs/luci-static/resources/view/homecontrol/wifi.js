@@ -193,7 +193,25 @@ return view.extend({
 			E('style', { 'type': 'text/css' }, [ CSS ]),
 			E('h2', {}, [ _('HomeControl — Wi-Fi') ]),
 			E('p', {}, [ _('Turn wireless on/off, or off for a while — it comes back automatically. Schedules (Schedules tab) can turn Wi-Fi off and on on a recurring pattern.') ]),
-			grid
+
+			E('div', { 'class': 'cbi-section' }, [
+				E('div', { 'style': 'margin-top:8px' }, [
+					E('strong', {}, [ _('Wi-Fi on a schedule:') ]),
+					E('ol', { 'style': 'margin:6px 0 0 18px' }, [
+						E('li', {}, [ _('Open the Schedules tab and create a schedule bound to the Wi-Fi network(s) below.') ]),
+						E('li', {}, [ _('Action "Block during the window" = Wi-Fi is OFF during the window (e.g. off every night 23:00–07:00).') ]),
+						E('li', {}, [ _('Action "Allow only during the window" = Wi-Fi is ON only during the window (e.g. on only 16:00–18:00).') ])
+					]),
+					E('div', { 'style': 'margin-top:6px' }, [
+						E('a', { 'class': 'btn', 'href': L.url('admin/services/homecontrol/schedules') }, [ _('Go to Schedules') ])
+					])
+				])
+			]),
+
+			E('div', { 'class': 'cbi-section' }, [
+				E('h3', {}, [ _('Wireless networks') ]),
+				grid
+			])
 		]);
 	}
 });
