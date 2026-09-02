@@ -45,7 +45,8 @@ else
 	mkdir -p "$TEMP_PKG_DIR/CONTROL/"
 fi
 
-cp -fpR "$PKG_DIR/htdocs"/* "$TEMP_PKG_DIR/www/"
+mkdir -p "$TEMP_PKG_DIR/www/luci-static/resources"
+cp -fpR "$PKG_DIR/htdocs/luci-static/resources/view" "$TEMP_PKG_DIR/www/luci-static/resources/view"
 cp -fpR "$PKG_DIR/root"/* "$TEMP_PKG_DIR/"
 
 # LuCI serves views from /www/luci-static/resources (luci.main.resourcebase).
