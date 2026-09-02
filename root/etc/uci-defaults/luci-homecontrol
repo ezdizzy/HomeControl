@@ -1,5 +1,6 @@
 #!/bin/sh
-# uci-defaults: register fw4 includes for HomeControl nft chains.
+# uci-defaults: register fw4 includes for HomeControl nft chains, and clean
+# up views mistakenly installed to /www/resources (pre-0.3.4 builds).
 
 [ -f "/etc/config/firewall" ] || exit 0
 
@@ -12,5 +13,9 @@ uci -q batch <<-EOF >"/dev/null"
 	set firewall.homecontrol_pre.chain="forward"
 	commit firewall
 EOF
+
+# remove stray views from the wrong resource path (older releases)
+rm -rf /www/resources/view/homecontrol
+rmdir /www/resources/view /www/resources 2>/dev/null
 
 exit 0

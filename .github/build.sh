@@ -48,6 +48,14 @@ fi
 cp -fpR "$PKG_DIR/htdocs"/* "$TEMP_PKG_DIR/www/"
 cp -fpR "$PKG_DIR/root"/* "$TEMP_PKG_DIR/"
 
+# LuCI serves views from /www/luci-static/resources (luci.main.resourcebase).
+# Guard against accidental path drift: views must NEVER land in www/resources.
+if [ -d "$TEMP_PKG_DIR/www/resources" ] || [ ! -f "$TEMP_PKG_DIR/www/luci-static/resources/view/homecontrol/dashboard.js" ]; then
+	echo "ERROR: view files are not under www/luci-static/resources — check htdocs layout" >&2
+	find "$TEMP_PKG_DIR/www" -maxdepth 4 >&2
+	exit 1
+fi
+
 # Stamp the package version for the in-app updater (self-update feature).
 mkdir -p "$TEMP_PKG_DIR/usr/share/homecontrol/"
 printf '%s\n' "$PKG_VERSION" > "$TEMP_PKG_DIR/usr/share/homecontrol/version"
