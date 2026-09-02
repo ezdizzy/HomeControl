@@ -49,9 +49,18 @@ cp -fpR "$PKG_DIR/htdocs"/* "$TEMP_PKG_DIR/www/"
 cp -fpR "$PKG_DIR/root"/* "$TEMP_PKG_DIR/"
 
 # LuCI serves views from /www/luci-static/resources (luci.main.resourcebase).
-# Guard against accidental path drift: views must NEVER land in www/resources.
-if [ -d "$TEMP_PKG_DIR/www/resources" ] || [ ! -f "$TEMP_PKG_DIR/www/luci-static/resources/view/homecontrol/dashboard.js" ]; then
-	echo "ERROR: view files are not under www/luci-static/resources — check htdocs layout" >&2
+# Some earlier builds landed the views in www/resources instead of
+# www/luci-static/resources (checkout dir layout quirk). Normalize:
+# if views ended up in www/resources, move them to the correct path.
+if [ -d "$TEMP_PKG_DIR/www/resources/view" ] && [ ! -d "$TEMP_PKG_DIR/www/luci-static/resources/view" ]; then
+	mkdir -p "$TEMP_PKG_DIR/www/luci-static/resources"
+	mv "$TEMP_PKG_DIR/www/resources/view" "$TEMP_PKG_DIR/www/luci-static/resources/view"
+	echo "NOTE: relocated view files from www/resources to www/luci-static/resources" >&2
+fi
+
+# Hard verification: views must be at the correct path, never at the wrong one.
+if [ ! -f "$TEMP_PKG_DIR/www/luci-static/resources/view/homecontrol/dashboard.js" ] || [ -d "$TEMP_PKG_DIR/www/resources" ]; then
+	echo "ERROR: view files not under www/luci-static/resources — check htdocs layout" >&2
 	find "$TEMP_PKG_DIR/www" -maxdepth 4 >&2
 	exit 1
 fi
